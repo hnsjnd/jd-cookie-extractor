@@ -5,7 +5,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
-/** Local-only multi-account store. Never leaves the device unless user pushes to QingLong. */
+/** Local multi-account store. Pushed to QingLong only via OpenAPI when user/flow requests. */
 class AccountStore(context: Context) {
 
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -29,7 +29,13 @@ class AccountStore(context: Context) {
                     lastCheckedAt = o.optLong("lastCheckedAt", 0L),
                     updatedAt = o.optLong("updatedAt", 0L),
                     createdAt = o.optLong("createdAt", 0L),
-                    lastMessage = o.optString("lastMessage", "")
+                    lastMessage = o.optString("lastMessage", ""),
+                    pushStatus = runCatching {
+                        PushStatus.valueOf(o.optString("pushStatus", "NONE"))
+                    }.getOrDefault(PushStatus.NONE),
+                    lastPushedAt = o.optLong("lastPushedAt", 0L),
+                    lastPushMessage = o.optString("lastPushMessage", ""),
+                    qlEnvId = o.optString("qlEnvId", "")
                 )
             )
         }
@@ -48,7 +54,9 @@ class AccountStore(context: Context) {
                 existing.ptKey = ptKey
                 existing.updatedAt = now
                 existing.status = AccountStatus.UNKNOWN
-                existing.lastMessage = "刚提取，待检测"
+                existing.lastMessage = "刚提取"
+                existing.pushStatus = PushStatus.NONE
+                existing.lastPushMessage = "待推送"
                 if (!nickname.isNullOrBlank()) existing.nickname = nickname
                 existing
             } else {
@@ -60,7 +68,9 @@ class AccountStore(context: Context) {
                     status = AccountStatus.UNKNOWN,
                     updatedAt = now,
                     createdAt = now,
-                    lastMessage = "刚提取，待检测"
+                    lastMessage = "刚提取",
+                    pushStatus = PushStatus.NONE,
+                    lastPushMessage = "待推送"
                 ).also { list.add(0, it) }
             }
             persist(list)
@@ -105,6 +115,10 @@ class AccountStore(context: Context) {
                     .put("updatedAt", a.updatedAt)
                     .put("createdAt", a.createdAt)
                     .put("lastMessage", a.lastMessage)
+                    .put("pushStatus", a.pushStatus.name)
+                    .put("lastPushedAt", a.lastPushedAt)
+                    .put("lastPushMessage", a.lastPushMessage)
+                    .put("qlEnvId", a.qlEnvId)
             )
         }
         prefs.edit().putString(KEY, arr.toString()).apply()

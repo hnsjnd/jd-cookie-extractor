@@ -2,10 +2,13 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
+        android:id="@+id/action_push_all"
+        android:title="@string/push_all"
+        app:showAsAction="ifRoom"/>
+    <item
         android:id="@+id/action_tasks"
         android:title="@string/tasks"
-        android:icon="@android:drawable/ic_menu_recent_history"
-        app:showAsAction="ifRoom"/>
+        app:showAsAction="never"/>
     <item
         android:id="@+id/action_check_all"
         android:title="@string/check_all"
@@ -17,5 +20,9 @@
     <item
         android:id="@+id/action_qinglong"
         android:title="@string/qinglong_config_menu"
+        app:showAsAction="never"/>
+    <item
+        android:id="@+id/action_open_panel"
+        android:title="@string/qinglong_panel"
         app:showAsAction="never"/>
 </menu>

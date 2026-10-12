@@ -8,6 +8,13 @@ enum class AccountStatus {
     ERROR
 }
 
+enum class PushStatus {
+    NONE,       // 未同步
+    SYNCED,     // 已同步
+    FAILED,     // 失败
+    PUSHING     // 推送中
+}
+
 data class Account(
     val id: String,
     var nickname: String,
@@ -17,7 +24,11 @@ data class Account(
     var lastCheckedAt: Long = 0L,
     var updatedAt: Long = System.currentTimeMillis(),
     var createdAt: Long = System.currentTimeMillis(),
-    var lastMessage: String = ""
+    var lastMessage: String = "",
+    var pushStatus: PushStatus = PushStatus.NONE,
+    var lastPushedAt: Long = 0L,
+    var lastPushMessage: String = "",
+    var qlEnvId: String = ""
 ) {
     val combined: String
         get() = "pt_key=$ptKey;pt_pin=$ptPin;"

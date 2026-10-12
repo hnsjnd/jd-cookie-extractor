@@ -32,6 +32,7 @@ class AccountAdapter(
         val tvName: TextView = v.findViewById(R.id.tvName)
         val tvPin: TextView = v.findViewById(R.id.tvPin)
         val tvUpdated: TextView = v.findViewById(R.id.tvUpdated)
+        val tvPush: TextView = v.findViewById(R.id.tvPush)
         val chipStatus: Chip = v.findViewById(R.id.chipStatus)
         val btnCopy: MaterialButton = v.findViewById(R.id.btnCopy)
         val btnRelogin: MaterialButton = v.findViewById(R.id.btnRelogin)
@@ -45,11 +46,30 @@ class AccountAdapter(
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         val a = items[position]
+        val ctx = holder.itemView.context
         holder.tvName.text = a.displayName
         holder.tvPin.text = "pt_pin: ${a.decodedPin}"
         val t = if (a.updatedAt > 0) fmt.format(Date(a.updatedAt)) else "-"
         val c = if (a.lastCheckedAt > 0) fmt.format(Date(a.lastCheckedAt)) else "-"
         holder.tvUpdated.text = "更新 $t · 检测 $c"
+        holder.tvPush.text = when (a.pushStatus) {
+            PushStatus.SYNCED -> {
+                val pt = if (a.lastPushedAt > 0) fmt.format(Date(a.lastPushedAt)) else ""
+                ctx.getString(R.string.push_synced, pt)
+            }
+            PushStatus.FAILED -> ctx.getString(R.string.push_failed, a.lastPushMessage)
+            PushStatus.PUSHING -> ctx.getString(R.string.push_pushing)
+            PushStatus.NONE -> ctx.getString(R.string.push_none)
+        }
+        holder.tvPush.setTextColor(
+            ctx.getColor(
+                when (a.pushStatus) {
+                    PushStatus.SYNCED -> R.color.status_ok
+                    PushStatus.FAILED -> R.color.md_theme_error
+                    else -> R.color.status_warn
+                }
+            )
+        )
         bindStatus(holder.chipStatus, a)
         holder.btnCopy.setOnClickListener { listener.onCopy(a) }
         holder.btnRelogin.setOnClickListener { listener.onRelogin(a) }
@@ -57,15 +77,15 @@ class AccountAdapter(
             val popup = android.widget.PopupMenu(v.context, v)
             popup.menu.add(0, 1, 0, R.string.rename)
             popup.menu.add(0, 2, 1, R.string.check_one)
-            popup.menu.add(0, 3, 2, R.string.show_qr)
-            popup.menu.add(0, 4, 3, R.string.push_qinglong)
+            popup.menu.add(0, 3, 2, R.string.push_qinglong)
+            popup.menu.add(0, 4, 3, R.string.show_qr)
             popup.menu.add(0, 5, 4, R.string.delete)
             popup.setOnMenuItemClickListener { item ->
                 when (item.itemId) {
                     1 -> listener.onRename(a)
                     2 -> listener.onCheck(a)
-                    3 -> listener.onShowQr(a)
-                    4 -> listener.onPushQl(a)
+                    3 -> listener.onPushQl(a)
+                    4 -> listener.onShowQr(a)
                     5 -> listener.onDelete(a)
                 }
                 true
