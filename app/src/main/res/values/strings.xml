@@ -1,4 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">JD Cookie</string>
+    <string name="app_name">京东 Cookie 提取</string>
+    <string name="hint_login">请在上方网页完成京东登录，登录成功后点击「提取 Cookie」</string>
+    <string name="status_unknown">登录状态：未检测</string>
+    <string name="status_logged_in">登录状态：已登录（%1$s）</string>
+    <string name="status_not_logged_in">登录状态：未登录</string>
+    <string name="extract">提取 Cookie</string>
+    <string name="copy_combined">复制完整 Cookie</string>
+    <string name="copy_pt_key">复制 pt_key</string>
+    <string name="copy_pt_pin">复制 pt_pin</string>
+    <string name="share">分享</string>
+    <string name="show_qr">显示二维码</string>
+    <string name="clear_relogin">清除并重新登录</string>
+    <string name="history">历史记录</string>
+    <string name="refresh">刷新页面</string>
+    <string name="open_login">打开登录页</string>
+    <string name="extracted_title">提取结果</string>
+    <string name="privacy_note">Cookie 仅保存在本机，不会上传到任何服务器</string>
+    <string name="toast_extract_ok">提取成功，已保存到本地历史</string>
+    <string name="toast_need_login">请先完成登录</string>
+    <string name="toast_need_extract">请先提取 Cookie</string>
+    <string name="toast_copied">已复制到剪贴板</string>
+    <string name="toast_cleared">已清除 Cookie，请重新登录</string>
+    <string name="toast_shared">已打开系统分享</string>
+    <string name="history_empty">暂无历史记录</string>
+    <string name="history_title">本地历史账号</string>
+    <string name="delete">删除</string>
+    <string name="copy">复制</string>
+    <string name="confirm_clear_title">清除登录状态？</string>
+    <string name="confirm_clear_msg">将清除 WebView 中的全部 Cookie，并重新加载登录页。本地历史不会被删除。</string>
+    <string name="confirm">确定</string>
+    <string name="cancel">取消</string>
+    <string name="qr_title">Cookie 二维码</string>
+    <string name="qr_hint">可用其他设备扫码获取（请勿分享给他人）</string>
+    <string name="close">关闭</string>
+    <string name="pt_key_label">pt_key</string>
+    <string name="pt_pin_label">pt_pin</string>
+    <string name="combined_label">完整 Cookie</string>
+    <string name="not_found">未找到 pt_key / pt_pin，请确认已登录成功</string>
+    <string name="saved_at">保存于 %1$s</string>
 </resources>
