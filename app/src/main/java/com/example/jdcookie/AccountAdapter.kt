@@ -27,12 +27,15 @@ class AccountAdapter(
     }
 
     private val fmt = SimpleDateFormat("MM-dd HH:mm", Locale.CHINA)
+    private var beanById: Map<String, JdBeanApi.AccountBeanStats> = emptyMap()
 
     class VH(v: View) : RecyclerView.ViewHolder(v) {
         val tvName: TextView = v.findViewById(R.id.tvName)
         val tvPin: TextView = v.findViewById(R.id.tvPin)
         val tvUpdated: TextView = v.findViewById(R.id.tvUpdated)
         val tvPush: TextView = v.findViewById(R.id.tvPush)
+        val tvBeans: TextView = v.findViewById(R.id.tvBeans)
+        val tvBeansExpire: TextView = v.findViewById(R.id.tvBeansExpire)
         val chipStatus: Chip = v.findViewById(R.id.chipStatus)
         val btnCopy: MaterialButton = v.findViewById(R.id.btnCopy)
         val btnRelogin: MaterialButton = v.findViewById(R.id.btnRelogin)
@@ -70,6 +73,7 @@ class AccountAdapter(
                 }
             )
         )
+        bindBeans(holder, a)
         bindStatus(holder.chipStatus, a)
         holder.btnCopy.setOnClickListener { listener.onCopy(a) }
         holder.btnRelogin.setOnClickListener { listener.onRelogin(a) }
@@ -91,6 +95,39 @@ class AccountAdapter(
                 true
             }
             popup.show()
+        }
+    }
+
+    private fun bindBeans(holder: VH, a: Account) {
+        val ctx = holder.itemView.context
+        val stats = beanById[a.id]
+        if (stats == null) {
+            holder.tvBeans.text = ctx.getString(R.string.bean_card_placeholder)
+            holder.tvBeansExpire.text = ctx.getString(R.string.bean_card_expire_placeholder)
+            return
+        }
+        if (!stats.ok) {
+            holder.tvBeans.text = ctx.getString(R.string.bean_card_fail)
+            holder.tvBeansExpire.text = stats.message.ifBlank {
+                ctx.getString(R.string.bean_card_expire_na)
+            }
+            return
+        }
+        val balance = stats.totalBeans?.toString() ?: ctx.getString(R.string.bean_na)
+        val today = stats.todayIncome?.let { "+$it" } ?: ctx.getString(R.string.bean_na)
+        holder.tvBeans.text = if (stats.totalBeans != null && stats.todayIncome != null) {
+            ctx.getString(R.string.bean_card_line, stats.totalBeans, stats.todayIncome)
+        } else {
+            ctx.getString(R.string.bean_card_line_partial, balance, today)
+        }
+        holder.tvBeansExpire.text = if (!stats.expireAvailable) {
+            ctx.getString(R.string.bean_card_expire_na)
+        } else {
+            ctx.getString(
+                R.string.bean_card_expire,
+                stats.expireTomorrow ?: 0,
+                stats.expireIn7Days ?: 0
+            )
         }
     }
 
@@ -130,6 +167,11 @@ class AccountAdapter(
     fun replaceAll(newItems: List<Account>) {
         items.clear()
         items.addAll(newItems)
+        notifyDataSetChanged()
+    }
+
+    fun setBeanStats(stats: Map<String, JdBeanApi.AccountBeanStats>) {
+        beanById = stats
         notifyDataSetChanged()
     }
 }

@@ -116,8 +116,8 @@
     <string name="bean_overview_expire_na">即将过期：当前未能从京东获取（见各账号说明）</string>
     <string name="bean_fetched_at">上次刷新：%1$s</string>
     <string name="bean_never_fetched">尚未刷新</string>
-    <string name="bean_refresh">刷新京豆</string>
-    <string name="bean_refresh_done">京豆统计已更新</string>
+    <string name="bean_refresh">更新</string>
+    <string name="bean_refresh_done">全部账号已更新</string>
     <string name="bean_progress">正在查询 %1$d / %2$d</string>
     <string name="bean_total_fmt">京豆余额：%1$d</string>
     <string name="bean_today_fmt">今日增加：+%1$d · 今日支出：%2$d</string>
@@ -126,5 +126,19 @@
     <string name="bean_expire_unavailable">即将过期：接口暂不可用（非估算）</string>
     <string name="bean_na">—</string>
     <string name="bean_api_note">余额来自 GetJDUserInfoUnion；今日增减来自 getJingBeanBalanceDetail；过期来自 queryexpirejingdou（真实到期日，非估算）。</string>
+
+    <string name="bean_card_placeholder">京豆：加载中…</string>
+    <string name="bean_card_expire_placeholder">即将过期：—</string>
+    <string name="bean_card_line">余额 %1$d · 今日增加 +%2$d</string>
+    <string name="bean_card_line_partial">余额 %1$s · 今日增加 %2$s</string>
+    <string name="bean_card_expire">即将过期：明天 %1$d · 7日内 %2$d</string>
+    <string name="bean_card_expire_na">即将过期：暂不可用</string>
+    <string name="bean_card_fail">京豆：获取失败</string>
+    <string name="bean_summary_placeholder">全部合计：点右上角「更新」刷新 CK / 京豆 / 推送状态</string>
+    <string name="bean_summary_fmt">全部合计：余额 %1$d · 今日增加 +%2$d · 7日过期 %3$d</string>
+    <string name="bean_refreshing">正在更新…</string>
+    <string name="refresh_all_progress">更新进度 %1$d / %2$d</string>
+    <string name="refresh_all_title">更新</string>
+    <string name="bean_card_loading">余额 / 今日增加：更新中…</string>
 </resources>
 

@@ -15,40 +15,60 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+import com.google.android.material.progressindicator.LinearProgressIndicator
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
 class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
 
     private lateinit var store: AccountStore
+    private lateinit var beanCache: BeanStatsCache
     private lateinit var adapter: AccountAdapter
     private lateinit var tvEmpty: TextView
     private lateinit var rv: RecyclerView
     private lateinit var qlConfig: QingLongConfig
+    private lateinit var swipeRefresh: SwipeRefreshLayout
+    private lateinit var tvBeanSummary: TextView
+    private lateinit var tvBeanSummaryTime: TextView
+    private lateinit var tvRefreshProgress: TextView
+    private lateinit var refreshProgress: LinearProgressIndicator
+
+    private var beanById: MutableMap<String, JdBeanApi.AccountBeanStats> = linkedMapOf()
+    private var beanFetchedAt: Long = 0L
+    private var refreshing = false
+
+    private val timeFmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.CHINA)
 
     private val loginLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
-    ) { refresh() }
+    ) { refreshList() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_account_list)
 
         store = AccountStore(this)
+        beanCache = BeanStatsCache(this)
         qlConfig = QingLongConfig(this)
         QingLongPanel.ensureDefaultUrl(qlConfig)
 
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
         toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
-                R.id.action_push_all -> {
-                    pushAll()
+                R.id.action_refresh_beans -> {
+                    refreshAllAccounts()
                     true
                 }
-                R.id.action_bean_stats -> {
-                    startActivity(Intent(this, BeanStatsActivity::class.java))
+                R.id.action_push_all -> {
+                    pushAll()
                     true
                 }
                 R.id.action_tasks -> {
@@ -79,9 +99,17 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
 
         tvEmpty = findViewById(R.id.tvEmpty)
         rv = findViewById(R.id.rvAccounts)
+        swipeRefresh = findViewById(R.id.swipeRefresh)
+        tvBeanSummary = findViewById(R.id.tvBeanSummary)
+        tvBeanSummaryTime = findViewById(R.id.tvBeanSummaryTime)
+        tvRefreshProgress = findViewById(R.id.tvRefreshProgress)
+        refreshProgress = findViewById(R.id.refreshProgress)
+
         adapter = AccountAdapter(mutableListOf(), this)
         rv.layoutManager = LinearLayoutManager(this)
         rv.adapter = adapter
+
+        swipeRefresh.setOnRefreshListener { refreshAllAccounts() }
 
         findViewById<ExtendedFloatingActionButton>(R.id.fabAdd).setOnClickListener {
             QingLongPanel.ensureReady(this) {
@@ -89,25 +117,192 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
             }
         }
 
-        // First-run: prompt for OpenAPI credentials
         if (!QingLongPanel.isReady(this)) {
             Toast.makeText(this, R.string.firstrun_need_ql, Toast.LENGTH_LONG).show()
             QingLongPanel.promptSettings(this, requireCredentials = true)
         }
 
-        refresh()
+        loadCachedBeans()
+        refreshList()
     }
 
     override fun onResume() {
         super.onResume()
-        refresh()
+        refreshList()
     }
 
-    private fun refresh() {
+    private fun loadCachedBeans() {
+        val (t, rows) = beanCache.load()
+        beanFetchedAt = t
+        beanById = rows.associateBy { it.accountId }.toMutableMap()
+        adapter.setBeanStats(beanById)
+        updateBeanSummary()
+    }
+
+    private fun refreshList() {
         val list = store.loadAll()
         adapter.replaceAll(list)
+        adapter.setBeanStats(beanById)
         tvEmpty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
         rv.visibility = if (list.isEmpty()) View.GONE else View.VISIBLE
+        updateBeanSummary()
+    }
+
+    private fun updateBeanSummary() {
+        val accounts = store.loadAll()
+        val rows = accounts.mapNotNull { beanById[it.id] }
+        val okRows = rows.filter { it.ok && it.totalBeans != null }
+        if (okRows.isEmpty()) {
+            tvBeanSummary.text = getString(R.string.bean_summary_placeholder)
+        } else {
+            val sumBeans = okRows.sumOf { it.totalBeans ?: 0 }
+            val sumToday = okRows.sumOf { it.todayIncome ?: 0 }
+            val sumExpire7 = okRows.filter { it.expireAvailable }.sumOf { it.expireIn7Days ?: 0 }
+            tvBeanSummary.text = getString(R.string.bean_summary_fmt, sumBeans, sumToday, sumExpire7)
+        }
+        tvBeanSummaryTime.text = if (beanFetchedAt > 0) {
+            getString(R.string.bean_fetched_at, timeFmt.format(Date(beanFetchedAt)))
+        } else {
+            getString(R.string.bean_never_fetched)
+        }
+    }
+
+    /**
+     * 更新全部账号：CK 有效性 + 京豆（余额/今日/过期）+ 青龙推送状态展示。
+     * 并发上限 2；结果写入 BeanStatsCache。
+     */
+    private fun refreshAllAccounts() {
+        if (refreshing) {
+            swipeRefresh.isRefreshing = false
+            return
+        }
+        val accounts = store.loadAll()
+        if (accounts.isEmpty()) {
+            swipeRefresh.isRefreshing = false
+            Toast.makeText(this, R.string.no_accounts, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        refreshing = true
+        swipeRefresh.isRefreshing = true
+        refreshProgress.visibility = View.VISIBLE
+        refreshProgress.isIndeterminate = false
+        refreshProgress.max = accounts.size
+        refreshProgress.progress = 0
+        tvRefreshProgress.visibility = View.VISIBLE
+        tvRefreshProgress.text = getString(R.string.refresh_all_progress, 0, accounts.size)
+
+        // Mark checking
+        accounts.forEach {
+            it.status = AccountStatus.CHECKING
+            store.update(it)
+        }
+        refreshList()
+
+        thread {
+            // Prefetch QingLong envs once (optional) for push-status display
+            val qlEnvs: List<QingLongApi.EnvItem>? = try {
+                if (QingLongPanel.isReady(this)) {
+                    QingLongApi(qlConfig.load()).listEnvs("JD_COOKIE")
+                } else null
+            } catch (_: Exception) {
+                null
+            }
+
+            val pool = Executors.newFixedThreadPool(2)
+            val done = AtomicInteger(0)
+            val results = arrayOfNulls<JdBeanApi.AccountBeanStats>(accounts.size)
+
+            accounts.forEachIndexed { index, account ->
+                pool.execute {
+                    // 1) CK validity
+                    val check = JdApi.checkCookie(account.combined)
+                    account.status = check.status
+                    account.lastCheckedAt = System.currentTimeMillis()
+                    account.lastMessage = check.message
+                    if (!check.nickname.isNullOrBlank()) account.nickname = check.nickname
+
+                    // 2) Beans (same APIs as v1.5.0)
+                    val stats = JdBeanApi.fetchForAccount(account)
+                    results[index] = stats
+
+                    // 3) Push-status display from QL envs if available
+                    if (qlEnvs != null) {
+                        applyPushStatusFromEnvs(account, qlEnvs)
+                    }
+
+                    store.update(account)
+
+                    val n = done.incrementAndGet()
+                    runOnUiThread {
+                        beanById[account.id] = stats
+                        adapter.setBeanStats(beanById)
+                        refreshList()
+                        refreshProgress.progress = n
+                        tvRefreshProgress.text =
+                            getString(R.string.refresh_all_progress, n, accounts.size)
+                    }
+
+                    if (n == accounts.size) {
+                        pool.shutdown()
+                        val rows = results.filterNotNull()
+                        val now = System.currentTimeMillis()
+                        beanCache.save(now, rows)
+                        runOnUiThread {
+                            beanFetchedAt = now
+                            beanById = rows.associateBy { it.accountId }.toMutableMap()
+                            refreshing = false
+                            swipeRefresh.isRefreshing = false
+                            refreshProgress.visibility = View.GONE
+                            tvRefreshProgress.visibility = View.GONE
+                            refreshList()
+                            Toast.makeText(this, R.string.bean_refresh_done, Toast.LENGTH_SHORT)
+                                .show()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun applyPushStatusFromEnvs(account: Account, envs: List<QingLongApi.EnvItem>) {
+        val pin = account.ptPin
+        val decoded = account.decodedPin
+        val match = envs.find { env ->
+            env.name == "JD_COOKIE" && (
+                env.value.contains("pt_pin=$pin") ||
+                    env.value.contains("pt_pin=$decoded") ||
+                    env.remarks.contains(decoded) ||
+                    env.remarks.contains(pin)
+                )
+        }
+        if (match == null) {
+            if (account.pushStatus == PushStatus.SYNCED) {
+                account.pushStatus = PushStatus.NONE
+                account.lastPushMessage = "青龙上未找到对应变量"
+            }
+            return
+        }
+        account.qlEnvId = match.idString
+        val disabled = match.status == 1 || match.isDisabled == 1
+        val keyMatch = match.value.contains("pt_key=${account.ptKey}")
+        when {
+            disabled -> {
+                account.pushStatus = PushStatus.FAILED
+                account.lastPushMessage = "青龙变量已禁用"
+            }
+            keyMatch -> {
+                account.pushStatus = PushStatus.SYNCED
+                if (account.lastPushedAt == 0L) {
+                    account.lastPushedAt = System.currentTimeMillis()
+                }
+                account.lastPushMessage = "已与青龙同步"
+            }
+            else -> {
+                account.pushStatus = PushStatus.FAILED
+                account.lastPushMessage = "青龙 Cookie 与本地不一致"
+            }
+        }
     }
 
     override fun onCopy(account: Account) = copy(account.combined)
@@ -134,7 +329,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.confirm) { _, _ ->
                 store.rename(account.id, input.text.toString())
-                refresh()
+                refreshList()
             }
             .show()
     }
@@ -145,7 +340,8 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
             .setMessage(getString(R.string.confirm_delete_ql_msg, account.displayName))
             .setNeutralButton(R.string.delete_local_only) { _, _ ->
                 store.delete(account.id)
-                refresh()
+                beanById.remove(account.id)
+                refreshList()
             }
             .setNegativeButton(R.string.delete_and_disable_ql) { _, _ ->
                 deleteLocalAndQl(account, remove = false)
@@ -158,7 +354,8 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
 
     private fun deleteLocalAndQl(account: Account, remove: Boolean) {
         store.delete(account.id)
-        refresh()
+        beanById.remove(account.id)
+        refreshList()
         if (!QingLongPanel.isReady(this)) {
             Toast.makeText(this, R.string.ql_not_configured, Toast.LENGTH_SHORT).show()
             return
@@ -188,7 +385,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
     override fun onCheck(account: Account) {
         account.status = AccountStatus.CHECKING
         store.update(account)
-        refresh()
+        refreshList()
         thread {
             val result = JdApi.checkCookie(account.combined)
             account.status = result.status
@@ -197,7 +394,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
             if (!result.nickname.isNullOrBlank()) account.nickname = result.nickname
             store.update(account)
             runOnUiThread {
-                refresh()
+                refreshList()
                 Toast.makeText(this, "${account.displayName}: ${result.message}", Toast.LENGTH_SHORT).show()
             }
         }
@@ -207,7 +404,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
         QingLongPanel.ensureReady(this) {
             account.pushStatus = PushStatus.PUSHING
             store.update(account)
-            refresh()
+            refreshList()
             thread {
                 try {
                     val result = QingLongApi(qlConfig.load()).pushOrUpdateCookie(account)
@@ -217,7 +414,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
                     account.qlEnvId = result.envId
                     store.update(account)
                     runOnUiThread {
-                        refresh()
+                        refreshList()
                         Toast.makeText(this, result.message, Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Exception) {
@@ -225,7 +422,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
                     account.lastPushMessage = e.message ?: "失败"
                     store.update(account)
                     runOnUiThread {
-                        refresh()
+                        refreshList()
                         Toast.makeText(this, "推送失败: ${e.message}", Toast.LENGTH_LONG).show()
                     }
                 }
@@ -284,7 +481,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
                         store.update(account)
                         fail++
                     }
-                    runOnUiThread { refresh() }
+                    runOnUiThread { refreshList() }
                 }
                 runOnUiThread {
                     Toast.makeText(

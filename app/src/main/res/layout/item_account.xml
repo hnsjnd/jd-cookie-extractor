@@ -62,6 +62,24 @@
             android:textAppearance="?attr/textAppearanceBodySmall"
             android:textStyle="bold" />
 
+        <TextView
+            android:id="@+id/tvBeans"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textColor="?attr/colorPrimary"
+            android:text="@string/bean_card_placeholder" />
+
+        <TextView
+            android:id="@+id/tvBeansExpire"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:text="@string/bean_card_expire_placeholder" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
