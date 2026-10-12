@@ -47,6 +47,10 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
                     pushAll()
                     true
                 }
+                R.id.action_bean_stats -> {
+                    startActivity(Intent(this, BeanStatsActivity::class.java))
+                    true
+                }
                 R.id.action_tasks -> {
                     startActivity(Intent(this, TaskProgressActivity::class.java))
                     true

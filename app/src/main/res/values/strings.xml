@@ -107,5 +107,24 @@
     <string name="firstrun_need_ql">首次使用请先配置青龙 OpenAPI（client_id / client_secret），以便登录后自动推送 Cookie。</string>
     <string name="cancel_push">取消推送</string>
     <string name="step_preparing">正在准备独立登录会话…</string>
+
+    <string name="bean_stats_title">京豆统计</string>
+    <string name="bean_overview_title">全部账号汇总</string>
+    <string name="bean_overview_empty">暂无数据，请点击刷新</string>
+    <string name="bean_overview_fmt">总京豆 %1$d · 今日增加合计 %2$d</string>
+    <string name="bean_overview_expire7">7 日内将过期合计 %1$d（来自官方过期接口）</string>
+    <string name="bean_overview_expire_na">即将过期：当前未能从京东获取（见各账号说明）</string>
+    <string name="bean_fetched_at">上次刷新：%1$s</string>
+    <string name="bean_never_fetched">尚未刷新</string>
+    <string name="bean_refresh">刷新京豆</string>
+    <string name="bean_refresh_done">京豆统计已更新</string>
+    <string name="bean_progress">正在查询 %1$d / %2$d</string>
+    <string name="bean_total_fmt">京豆余额：%1$d</string>
+    <string name="bean_today_fmt">今日增加：+%1$d · 今日支出：%2$d</string>
+    <string name="bean_today_na">今日明细：暂不可用</string>
+    <string name="bean_expire_fmt">明天过期：%1$d · 7日内过期：%2$d</string>
+    <string name="bean_expire_unavailable">即将过期：接口暂不可用（非估算）</string>
+    <string name="bean_na">—</string>
+    <string name="bean_api_note">余额来自 GetJDUserInfoUnion；今日增减来自 getJingBeanBalanceDetail；过期来自 queryexpirejingdou（真实到期日，非估算）。</string>
 </resources>
 
