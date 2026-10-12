@@ -26,4 +26,8 @@
     <color name="status_ok">#81C784</color>
     <color name="status_warn">#FFB74D</color>
     <color name="ic_launcher_background">#93000A</color>
+    <color name="status_ok_bg">#1B3D1F</color>
+    <color name="status_warn_bg">#3E2A12</color>
+    <color name="status_err_bg">#3E1A1A</color>
 </resources>
+

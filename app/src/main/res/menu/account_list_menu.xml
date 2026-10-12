@@ -2,20 +2,20 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
-        android:id="@+id/action_history"
-        android:title="@string/history"
+        android:id="@+id/action_tasks"
+        android:title="@string/tasks"
         android:icon="@android:drawable/ic_menu_recent_history"
         app:showAsAction="ifRoom"/>
     <item
-        android:id="@+id/action_refresh"
-        android:title="@string/refresh"
+        android:id="@+id/action_check_all"
+        android:title="@string/check_all"
         app:showAsAction="never"/>
     <item
-        android:id="@+id/action_open_login"
-        android:title="@string/open_login"
+        android:id="@+id/action_copy_all"
+        android:title="@string/copy_all"
         app:showAsAction="never"/>
     <item
-        android:id="@+id/action_clear"
-        android:title="@string/clear_relogin"
+        android:id="@+id/action_qinglong"
+        android:title="@string/qinglong_settings"
         app:showAsAction="never"/>
 </menu>

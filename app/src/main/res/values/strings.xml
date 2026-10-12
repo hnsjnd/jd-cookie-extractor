@@ -1,42 +1,74 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">京东 Cookie 提取</string>
-    <string name="hint_login">请在上方网页完成京东登录，登录成功后点击「提取 Cookie」</string>
-    <string name="status_unknown">登录状态：未检测</string>
-    <string name="status_logged_in">登录状态：已登录（%1$s）</string>
-    <string name="status_not_logged_in">登录状态：未登录</string>
-    <string name="extract">提取 Cookie</string>
-    <string name="copy_combined">复制完整 Cookie</string>
-    <string name="copy_pt_key">复制 pt_key</string>
-    <string name="copy_pt_pin">复制 pt_pin</string>
-    <string name="share">分享</string>
-    <string name="show_qr">显示二维码</string>
-    <string name="clear_relogin">清除并重新登录</string>
-    <string name="history">历史记录</string>
-    <string name="refresh">刷新页面</string>
-    <string name="open_login">打开登录页</string>
-    <string name="extracted_title">提取结果</string>
-    <string name="privacy_note">Cookie 仅保存在本机，不会上传到任何服务器</string>
-    <string name="toast_extract_ok">提取成功，已保存到本地历史</string>
-    <string name="toast_need_login">请先完成登录</string>
-    <string name="toast_need_extract">请先提取 Cookie</string>
-    <string name="toast_copied">已复制到剪贴板</string>
-    <string name="toast_cleared">已清除 Cookie，请重新登录</string>
-    <string name="toast_shared">已打开系统分享</string>
-    <string name="history_empty">暂无历史记录</string>
-    <string name="history_title">本地历史账号</string>
-    <string name="delete">删除</string>
+    <string name="accounts_title">账号列表</string>
+    <string name="add_account">添加账号</string>
+    <string name="add_account_title">添加账号 · 独立登录</string>
+    <string name="relogin_title">重新登录 · 独立会话</string>
+    <string name="empty_accounts">还没有账号\n点右下角 + 添加，登录后会自动提取并保存</string>
+    <string name="no_accounts">暂无账号</string>
+
+    <string name="status_valid">有效</string>
+    <string name="status_expired">已失效</string>
+    <string name="status_checking">检测中</string>
+    <string name="status_unknown">未检测</string>
+    <string name="status_error">异常</string>
+
     <string name="copy">复制</string>
-    <string name="confirm_clear_title">清除登录状态？</string>
-    <string name="confirm_clear_msg">将清除 WebView 中的全部 Cookie，并重新加载登录页。本地历史不会被删除。</string>
-    <string name="confirm">确定</string>
-    <string name="cancel">取消</string>
+    <string name="relogin">重新登录</string>
+    <string name="more">更多</string>
+    <string name="rename">重命名</string>
+    <string name="rename_hint">备注名（可选）</string>
+    <string name="delete">删除</string>
+    <string name="check_one">检测有效性</string>
+    <string name="show_qr">二维码</string>
+    <string name="push_qinglong">推送到青龙</string>
+    <string name="confirm_delete_msg">确定删除账号「%1$s」？仅删除本机记录。</string>
+
+    <string name="copy_all">复制全部 Cookie</string>
+    <string name="copy_join_amp">用 &amp; 连接（青龙多账号常用）</string>
+    <string name="copy_join_newline">用换行连接</string>
+    <string name="copy_join_amp_valid_only">仅有效账号，用 &amp; 连接</string>
+    <string name="toast_copied">已复制到剪贴板</string>
+
+    <string name="tasks">任务进度</string>
+    <string name="check_all">检测全部账号</string>
+    <string name="start_check">开始 CK 检测</string>
+    <string name="check_finished">检测完成</string>
+    <string name="task_pending">等待开始</string>
+    <string name="section_ck_check">CK 有效性检测（%1$d 个账号）</string>
+    <string name="overall_idle">就绪，共 %1$d 个账号。将请求京东 GetJDUserInfoUnion 接口。</string>
+    <string name="overall_progress">进度 %1$d / %2$d（%3$d%%）</string>
+    <string name="overall_done">完成：有效 %1$d · 失效 %2$d · 共 %3$d</string>
+
+    <string name="qinglong_settings">青龙面板配置</string>
+    <string name="qinglong_settings_hint">可选。填写 OpenAPI 的 URL / client_id / client_secret，仅保存在本机，用于推送 JD_COOKIE 与查看定时任务列表。</string>
+    <string name="ql_url_hint">面板地址，如 http://192.168.1.2:5700</string>
+    <string name="ql_client_id_hint">client_id</string>
+    <string name="ql_client_secret_hint">client_secret</string>
+    <string name="ql_not_configured">尚未配置青龙面板</string>
+    <string name="ql_pushing">正在推送到青龙…</string>
+    <string name="load_ql_crons">刷新青龙定时任务</string>
+    <string name="push_all_ql">推送全部账号到青龙</string>
+    <string name="section_ql_crons">青龙定时任务</string>
+    <string name="section_ql_crons_count">青龙定时任务（显示前 %1$d 条）</string>
+    <string name="section_ql_not_configured">青龙未配置（可在菜单中设置）</string>
+    <string name="section_ql_loading">正在加载青龙任务…</string>
+    <string name="section_ql_error">青龙加载失败：%1$s</string>
+
+    <string name="step_wait_login">等待登录…请在下方完成京东登录</string>
+    <string name="step_detecting">检测中…已发现登录 Cookie</string>
+    <string name="step_extracting">提取中…正在校验账号信息</string>
+    <string name="step_saving">已保存…正在写入本地账号列表</string>
+    <string name="step_saved">已保存，返回列表</string>
+    <string name="login_privacy">每次登录前会清除 WebView Cookie，账号互不串号。Cookie 仅存本机。</string>
+
     <string name="qr_title">Cookie 二维码</string>
     <string name="qr_hint">可用其他设备扫码获取（请勿分享给他人）</string>
     <string name="close">关闭</string>
-    <string name="pt_key_label">pt_key</string>
-    <string name="pt_pin_label">pt_pin</string>
-    <string name="combined_label">完整 Cookie</string>
-    <string name="not_found">未找到 pt_key / pt_pin，请确认已登录成功</string>
-    <string name="saved_at">保存于 %1$s</string>
+    <string name="cancel">取消</string>
+    <string name="confirm">确定</string>
+    <string name="save">保存</string>
+    <string name="saved">已保存</string>
+    <string name="task_explain">本页「任务」= 对本机账号批量请求京东用户信息接口检测 CK；可选拉取青龙 cron 列表（非脚本实时日志）。</string>
 </resources>

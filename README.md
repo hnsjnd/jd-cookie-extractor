@@ -1,39 +1,35 @@
 # 京东 Cookie 提取器
 
-简洁安卓工具：用 WebView 登录**自己的**京东账号，一键提取 `pt_key` / `pt_pin`。
+多账号安卓工具：用 **独立 WebView 会话** 登录自己的京东账号，自动提取 `pt_key` / `pt_pin`，并支持本地 CK 检测与可选青龙推送。
 
-> Cookie 仅保存在本机，不会上传到任何服务器。请勿泄露给他人。
+> Cookie 默认只保存在本机。请勿泄露给他人。
 
-## 功能
+## 功能（v1.2.0）
 
-- Material 3 中文界面，支持深色模式
-- WebView 打开京东手机版 / 登录页
-- 实时显示登录状态（已登录账号 / 未登录）
-- 一键提取，格式化为 `pt_key=...;pt_pin=...;`
-- 分别复制完整 Cookie / `pt_key` / `pt_pin`
-- 系统分享、二维码展示（可选）
-- 清除 Cookie 并重新登录 / 切换账号
-- 本地历史记录（SharedPreferences，最多 20 条）
+- **账号列表主界面**：昵称 / pt_pin、有效/失效状态、最近更新时间
+- **添加账号**：先清空 WebView Cookie，再打开登录页，账号互不串号
+- **登录后自动提取**：无需手动点「提取」；步骤条：等待登录 → 检测中 → 提取中 → 已保存
+- 重新登录、重命名、删除、复制单个 / 全部 Cookie（`&` 或换行）
+- **任务进度**：批量请求京东 `GetJDUserInfoUnion`（与 [ql-jd-self](https://github.com/hnsjnd/ql-jd-self) 相同接口）检测 CK，显示总进度与每账号结果
+- **可选青龙**：配置面板 URL + OpenAPI client_id/secret，推送/更新 `JD_COOKIE`，查看定时任务列表状态
 
 ## 使用
 
-1. 安装 Release 中的 APK，或用 Android Studio 打开本项目运行
-2. 在 App 内用手机号验证码登录京东（建议）
-3. 点击「提取 Cookie」
-4. 复制完整 Cookie，贴到青龙等工具的 `JD_COOKIE` 环境变量
+1. 安装 Release APK
+2. 点右下角 **+** 添加账号并完成登录（建议手机号验证码）
+3. 回到列表可复制 Cookie；在「任务进度」里一键检测全部
+4. （可选）菜单 → 青龙面板配置 → 推送环境变量
 
 ## 构建
 
 ```bash
-# 需要 JDK 17+ 与 Android SDK
 ./gradlew assembleRelease
-# APK: app/build/outputs/apk/release/app-release.apk
+# app/build/outputs/apk/release/app-release.apk
 ```
 
-签名密钥存放在仓库外的 `/workspace/keys`（或本机任意路径），通过 `keystore.properties` 配置，切勿提交到 Git。
+签名密钥放在仓库外，切勿提交。
 
 ## 注意
 
-- 仅供个人使用，Cookie 请勿泄露
-- 建议用手机号验证码登录，有效期更长
-- minSdk 24，targetSdk 34
+- 仅供个人使用
+- minSdk 24 / targetSdk 34

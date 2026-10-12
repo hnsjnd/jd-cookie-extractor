@@ -13,15 +13,27 @@
         android:usesCleartextTraffic="true"
         android:networkSecurityConfig="@xml/network_security_config"
         android:theme="@style/Theme.JDCookie">
+
         <activity
-            android:name=".MainActivity"
+            android:name=".AccountListActivity"
             android:exported="true"
-            android:configChanges="orientation|screenSize|keyboardHidden"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".LoginActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize"
+            android:parentActivityName=".AccountListActivity" />
+
+        <activity
+            android:name=".TaskProgressActivity"
+            android:exported="false"
+            android:parentActivityName=".AccountListActivity" />
     </application>
 </manifest>
