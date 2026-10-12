@@ -58,6 +58,15 @@ class TaskProgressActivity : AppCompatActivity() {
         rvQl.adapter = qlAdapter
 
         findViewById<MaterialButton>(R.id.btnStartCheck).setOnClickListener { startCookieCheck() }
+        findViewById<MaterialButton>(R.id.btnQlOpenHome).setOnClickListener {
+            QingLongPanel.openPanel(this, "/")
+        }
+        findViewById<MaterialButton>(R.id.btnQlOpenCrontab).setOnClickListener {
+            QingLongPanel.openPanel(this, "/crontab")
+        }
+        findViewById<MaterialButton>(R.id.btnQlOpenLog).setOnClickListener {
+            QingLongPanel.openPanel(this, "/log")
+        }
         findViewById<MaterialButton>(R.id.btnLoadQl).setOnClickListener { loadQingLongCrons() }
         findViewById<MaterialButton>(R.id.btnPushAll).setOnClickListener { pushAllToQingLong() }
 

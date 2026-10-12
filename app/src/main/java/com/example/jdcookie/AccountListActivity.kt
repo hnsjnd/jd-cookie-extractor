@@ -57,7 +57,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
                     true
                 }
                 R.id.action_qinglong -> {
-                    showQingLongSettings()
+                    QingLongPanel.promptSettings(this)
                     true
                 }
                 else -> false
@@ -74,6 +74,10 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
             loginLauncher.launch(Intent(this, LoginActivity::class.java))
         }
 
+        findViewById<com.google.android.material.button.MaterialButton>(R.id.btnQingLongPanel)
+            .setOnClickListener { QingLongPanel.openPanel(this) }
+
+        QingLongPanel.ensureDefaultUrl(qlConfig)
         refresh()
     }
 
@@ -151,7 +155,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
         val cfg = qlConfig.load()
         if (!cfg.isConfigured) {
             Toast.makeText(this, R.string.ql_not_configured, Toast.LENGTH_SHORT).show()
-            showQingLongSettings()
+            QingLongPanel.promptSettings(this)
             return
         }
         Toast.makeText(this, R.string.ql_pushing, Toast.LENGTH_SHORT).show()
@@ -203,33 +207,6 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
                 }
                 val sep = if (which == 1) "\n" else "&"
                 copy(src.joinToString(sep) { it.combined })
-            }
-            .show()
-    }
-
-    private fun showQingLongSettings() {
-        val cfg = qlConfig.load()
-        val view = LayoutInflater.from(this).inflate(R.layout.dialog_qinglong, null)
-        val etUrl = view.findViewById<EditText>(R.id.etQlUrl)
-        val etId = view.findViewById<EditText>(R.id.etQlClientId)
-        val etSecret = view.findViewById<EditText>(R.id.etQlClientSecret)
-        etUrl.setText(cfg.baseUrl)
-        etId.setText(cfg.clientId)
-        etSecret.setText(cfg.clientSecret)
-        MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.qinglong_settings)
-            .setView(view)
-            .setMessage(R.string.qinglong_settings_hint)
-            .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton(R.string.save) { _, _ ->
-                qlConfig.save(
-                    QingLongSettings(
-                        baseUrl = etUrl.text.toString(),
-                        clientId = etId.text.toString(),
-                        clientSecret = etSecret.text.toString()
-                    )
-                )
-                Toast.makeText(this, R.string.saved, Toast.LENGTH_SHORT).show()
             }
             .show()
     }

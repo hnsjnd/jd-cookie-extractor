@@ -42,8 +42,8 @@
     <string name="overall_done">完成：有效 %1$d · 失效 %2$d · 共 %3$d</string>
 
     <string name="qinglong_settings">青龙面板配置</string>
-    <string name="qinglong_settings_hint">可选。填写 OpenAPI 的 URL / client_id / client_secret，仅保存在本机，用于推送 JD_COOKIE 与查看定时任务列表。</string>
-    <string name="ql_url_hint">面板地址，如 http://192.168.1.2:5700</string>
+    <string name="qinglong_settings_hint">面板地址用于应用内打开青龙（默认 https://ql.xiaowo1.xyz）。client_id / client_secret 可选，用于推送 JD_COOKIE 与拉取定时任务列表。均仅保存在本机。</string>
+    <string name="ql_url_hint">面板地址，如 https://ql.xiaowo1.xyz 或 http://192.168.1.2:5700</string>
     <string name="ql_client_id_hint">client_id</string>
     <string name="ql_client_secret_hint">client_secret</string>
     <string name="ql_not_configured">尚未配置青龙面板</string>
@@ -71,4 +71,14 @@
     <string name="save">保存</string>
     <string name="saved">已保存</string>
     <string name="task_explain">本页「任务」= 对本机账号批量请求京东用户信息接口检测 CK；可选拉取青龙 cron 列表（非脚本实时日志）。</string>
+
+    <string name="qinglong_panel">青龙面板</string>
+    <string name="ql_url_invalid">面板地址无效，请以 http:// 或 https:// 开头</string>
+    <string name="refresh">刷新</string>
+    <string name="open_external">用系统浏览器打开</string>
+    <string name="ql_home">面板首页</string>
+    <string name="ql_crontab">定时任务</string>
+    <string name="ql_log">日志</string>
+    <string name="ql_quick_links">青龙快捷入口</string>
+    <string name="qinglong_config_menu">青龙配置</string>
 </resources>

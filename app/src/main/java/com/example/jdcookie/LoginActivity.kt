@@ -73,7 +73,7 @@ class LoginActivity : AppCompatActivity() {
         setupWebView()
 
         // Isolate: wipe any previous account cookies before this login
-        WebViewSession.clearAll(webView)
+        WebViewSession.clearJdCookies(webView)
         webView.loadUrl(LOGIN_URL)
 
         polling = true
@@ -168,7 +168,7 @@ class LoginActivity : AppCompatActivity() {
         polling = false
         handler.removeCallbacks(pollRunnable)
         // Leave WebView clean so next session starts fresh
-        WebViewSession.clearAll(webView)
+        WebViewSession.clearJdCookies(webView)
         super.onDestroy()
     }
 

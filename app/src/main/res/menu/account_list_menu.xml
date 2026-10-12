@@ -16,6 +16,6 @@
         app:showAsAction="never"/>
     <item
         android:id="@+id/action_qinglong"
-        android:title="@string/qinglong_settings"
+        android:title="@string/qinglong_config_menu"
         app:showAsAction="never"/>
 </menu>
