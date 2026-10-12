@@ -7,8 +7,12 @@ import java.net.URL
 import java.net.URLEncoder
 
 /**
- * QingLong OpenAPI: token, JD_COOKIE env upsert/enable/disable/delete, crons.
- * Handles both id and _id response shapes across QL versions.
+ * QingLong OpenAPI client aligned with whyour/qinglong back/api/env.ts (2.x):
+ *
+ * POST /open/envs  body: [ { value, name, remarks? } ]  — no extra fields
+ * PUT  /open/envs  body: { value, name, remarks?, id:number } — no _id/extra
+ * PUT  /open/envs/enable|disable  body: number[]
+ * DELETE /open/envs  body: number[]
  */
 class QingLongApi(private val settings: QingLongSettings) {
 
@@ -27,15 +31,25 @@ class QingLongApi(private val settings: QingLongSettings) {
         val name: String,
         val value: String,
         val remarks: String,
-        val status: Int,      // 0 enabled / 1 disabled varies by version
+        val status: Int,
         val isDisabled: Int
     ) {
+        /** Numeric id for modern QL (2.x). */
+        val numericId: Long?
+            get() = when (id) {
+                is Number -> id.toLong()
+                is String -> id.toLongOrNull()
+                else -> id?.toString()?.toLongOrNull()
+            }
+
         val idString: String get() = id?.toString() ?: ""
     }
 
     data class PushResult(val message: String, val envId: String)
 
     private var token: String? = null
+
+    private fun base(): String = settings.baseUrl.trim().trimEnd('/')
 
     fun testConnection(): String {
         token = null
@@ -46,21 +60,20 @@ class QingLongApi(private val settings: QingLongSettings) {
 
     fun ensureToken(): String {
         token?.let { return it }
-        val base = settings.baseUrl.trim().trimEnd('/')
         val url = URL(
-            "$base/open/auth/token?client_id=" +
+            "${base()}/open/auth/token?client_id=" +
                 URLEncoder.encode(settings.clientId, "UTF-8") +
                 "&client_secret=" + URLEncoder.encode(settings.clientSecret, "UTF-8")
         )
         val body = http("GET", url, auth = false)
         val json = JSONObject(body)
         if (json.optInt("code") != 200) {
-            throw IllegalStateException(json.optString("message", "获取青龙 Token 失败"))
+            throw IllegalStateException(formatErr("获取青龙 Token 失败", body))
         }
         val data = json.optJSONObject("data")
-            ?: throw IllegalStateException("Token 响应无 data")
+            ?: throw IllegalStateException(formatErr("Token 响应无 data", body))
         val t = data.optString("token").ifBlank {
-            throw IllegalStateException("Token 为空")
+            throw IllegalStateException(formatErr("Token 为空", body))
         }
         token = t
         return t
@@ -68,14 +81,13 @@ class QingLongApi(private val settings: QingLongSettings) {
 
     fun listEnvs(search: String = "JD_COOKIE"): List<EnvItem> {
         ensureToken()
-        val base = settings.baseUrl.trim().trimEnd('/')
         val url = URL(
-            "$base/open/envs?searchValue=" + URLEncoder.encode(search, "UTF-8")
+            "${base()}/open/envs?searchValue=" + URLEncoder.encode(search, "UTF-8")
         )
         val body = http("GET", url)
         val json = JSONObject(body)
         if (json.optInt("code") != 200) {
-            throw IllegalStateException(json.optString("message", "获取环境变量失败"))
+            throw IllegalStateException(formatErr("获取环境变量失败", body))
         }
         val arr = extractArray(json.opt("data"))
         val list = mutableListOf<EnvItem>()
@@ -86,7 +98,7 @@ class QingLongApi(private val settings: QingLongSettings) {
                     id = o.opt("id") ?: o.opt("_id"),
                     name = o.optString("name"),
                     value = o.optString("value"),
-                    remarks = o.optString("remarks"),
+                    remarks = o.optString("remarks", ""),
                     status = o.optInt("status", 0),
                     isDisabled = o.optInt("isDisabled", 0)
                 )
@@ -108,75 +120,141 @@ class QingLongApi(private val settings: QingLongSettings) {
         }
     }
 
+    /**
+     * Upsert JD_COOKIE. Cookie value must be like: pt_key=xxx;pt_pin=yyy;
+     * Strict celebrate schemas — only allowed keys.
+     */
     fun pushOrUpdateCookie(account: Account): PushResult {
         ensureToken()
-        val base = settings.baseUrl.trim().trimEnd('/')
         val match = findCookieEnv(account)
-        val remarks = account.displayName.ifBlank { account.decodedPin }
+        val remarks = (account.displayName.ifBlank { account.decodedPin }).ifBlank { "" }
+        val value = normalizeCookie(account.combined)
 
-        return if (match != null && match.id != null) {
-            val payload = JSONObject()
-                .put("id", match.id)
-                .put("_id", match.id)
-                .put("name", "JD_COOKIE")
-                .put("value", account.combined)
-                .put("remarks", remarks)
-            val body = http("PUT", URL("$base/open/envs"), payload.toString())
-            val json = JSONObject(body)
-            if (json.optInt("code") != 200) {
-                throw IllegalStateException(json.optString("message", "更新环境变量失败"))
-            }
-            // Enable if disabled (best-effort; QL versions differ)
-            tryEnable(match.id)
-            PushResult("已更新并启用青龙 JD_COOKIE", match.idString)
+        return if (match != null) {
+            updateEnv(match, value, remarks)
         } else {
-            val payload = JSONArray().put(
-                JSONObject()
-                    .put("name", "JD_COOKIE")
-                    .put("value", account.combined)
-                    .put("remarks", remarks)
-            )
-            val body = http("POST", URL("$base/open/envs"), payload.toString())
+            createEnv(value, remarks)
+        }
+    }
+
+    private fun createEnv(value: String, remarks: String): PushResult {
+        // POST body: array of { value, name, remarks? } — nothing else
+        val item = JSONObject()
+            .put("value", value)
+            .put("name", "JD_COOKIE")
+            .put("remarks", remarks)
+        val payload = JSONArray().put(item)
+        val body = http("POST", URL("${base()}/open/envs"), payload.toString())
+        val json = JSONObject(body)
+        if (json.optInt("code") != 200) {
+            throw IllegalStateException(formatErr("创建环境变量失败", body))
+        }
+        val newId = extractCreatedId(json) ?: findByValue(value)?.idString.orEmpty()
+        newId.toLongOrNull()?.let { tryEnable(it) }
+        return PushResult("已新建青龙 JD_COOKIE", newId)
+    }
+
+    private fun updateEnv(match: EnvItem, value: String, remarks: String): PushResult {
+        val numId = match.numericId
+        if (numId != null) {
+            // Modern QL (2.x): PUT { value, name, remarks?, id:number } — NO _id
+            val payload = JSONObject()
+                .put("value", value)
+                .put("name", "JD_COOKIE")
+                .put("remarks", remarks)
+                .put("id", numId)
+            val body = http("PUT", URL("${base()}/open/envs"), payload.toString())
             val json = JSONObject(body)
-            if (json.optInt("code") != 200) {
-                throw IllegalStateException(json.optString("message", "创建环境变量失败"))
+            if (json.optInt("code") == 200) {
+                tryEnable(numId)
+                return PushResult("已更新并启用青龙 JD_COOKIE", numId.toString())
             }
-            val newId = extractCreatedId(json) ?: findCookieEnv(account)?.idString.orEmpty()
-            if (newId.isNotBlank()) tryEnable(newId)
-            PushResult("已新建青龙 JD_COOKIE", newId)
+            // Fallback: try string id (very old) then recreate path message
+            val alt = tryPutWithIdKey(value, remarks, numId, useUnderscore = false)
+                ?: tryPutWithIdKey(value, remarks, match.idString, useUnderscore = true)
+            if (alt != null) return alt
+            throw IllegalStateException(formatErr("更新环境变量失败", body))
+        }
+
+        // No numeric id — try _id string (legacy Mongo)
+        val alt = tryPutWithIdKey(value, remarks, match.idString, useUnderscore = true)
+        if (alt != null) return alt
+
+        // Last resort: create new (may duplicate); prefer fail clearly
+        throw IllegalStateException(
+            "环境变量 id 无法解析为数字（got=${match.id}），当前青龙需 number id。请在面板删除旧变量后重试。"
+        )
+    }
+
+    private fun tryPutWithIdKey(
+        value: String,
+        remarks: String,
+        idVal: Any,
+        useUnderscore: Boolean
+    ): PushResult? {
+        return try {
+            val payload = JSONObject()
+                .put("value", value)
+                .put("name", "JD_COOKIE")
+                .put("remarks", remarks)
+            if (useUnderscore) {
+                payload.put("_id", idVal.toString())
+            } else {
+                when (idVal) {
+                    is Number -> payload.put("id", idVal.toLong())
+                    else -> {
+                        val n = idVal.toString().toLongOrNull() ?: return null
+                        payload.put("id", n)
+                    }
+                }
+            }
+            val body = http("PUT", URL("${base()}/open/envs"), payload.toString())
+            val json = JSONObject(body)
+            if (json.optInt("code") != 200) return null
+            val idStr = idVal.toString()
+            idStr.toLongOrNull()?.let { tryEnable(it) }
+            PushResult("已更新青龙 JD_COOKIE（兼容模式）", idStr)
+        } catch (_: Exception) {
+            null
         }
     }
 
     fun disableEnv(envId: Any): String {
         ensureToken()
-        val base = settings.baseUrl.trim().trimEnd('/')
-        val body = http("PUT", URL("$base/open/envs/disable"), JSONArray().put(coerceId(envId)).toString())
+        val id = requireNumericId(envId)
+        val body = http(
+            "PUT",
+            URL("${base()}/open/envs/disable"),
+            JSONArray().put(id).toString()
+        )
         val json = JSONObject(body)
         if (json.optInt("code") != 200) {
-            throw IllegalStateException(json.optString("message", "禁用失败"))
+            throw IllegalStateException(formatErr("禁用失败", body))
         }
         return "已在青龙禁用该环境变量"
     }
 
     fun deleteEnv(envId: Any): String {
         ensureToken()
-        val base = settings.baseUrl.trim().trimEnd('/')
-        // DELETE with JSON body
-        val body = http("DELETE", URL("$base/open/envs"), JSONArray().put(coerceId(envId)).toString())
+        val id = requireNumericId(envId)
+        val body = http(
+            "DELETE",
+            URL("${base()}/open/envs"),
+            JSONArray().put(id).toString()
+        )
         val json = JSONObject(body)
         if (json.optInt("code") != 200) {
-            throw IllegalStateException(json.optString("message", "删除失败"))
+            throw IllegalStateException(formatErr("删除失败", body))
         }
         return "已在青龙删除该环境变量"
     }
 
     fun listCrons(): List<CronTask> {
         ensureToken()
-        val base = settings.baseUrl.trim().trimEnd('/')
-        val body = http("GET", URL("$base/open/crons"))
+        val body = http("GET", URL("${base()}/open/crons"))
         val json = JSONObject(body)
         if (json.optInt("code") != 200) {
-            throw IllegalStateException(json.optString("message", "获取定时任务失败"))
+            throw IllegalStateException(formatErr("获取定时任务失败", body))
         }
         val arr = extractArray(json.opt("data"))
         val list = mutableListOf<CronTask>()
@@ -198,19 +276,35 @@ class QingLongApi(private val settings: QingLongSettings) {
         return list
     }
 
-    private fun tryEnable(envId: Any) {
+    private fun tryEnable(envId: Long) {
         try {
-            val base = settings.baseUrl.trim().trimEnd('/')
-            http("PUT", URL("$base/open/envs/enable"), JSONArray().put(coerceId(envId)).toString())
+            http(
+                "PUT",
+                URL("${base()}/open/envs/enable"),
+                JSONArray().put(envId).toString()
+            )
         } catch (_: Exception) {
             // best-effort
         }
     }
 
-    private fun coerceId(id: Any): Any {
-        val s = id.toString()
-        return s.toLongOrNull() ?: s
+    private fun requireNumericId(envId: Any): Long {
+        return when (envId) {
+            is Number -> envId.toLong()
+            else -> envId.toString().toLongOrNull()
+                ?: throw IllegalStateException("环境变量 id 不是数字: $envId")
+        }
     }
+
+    private fun normalizeCookie(raw: String): String {
+        var s = raw.trim()
+        // Ensure pt_key=...;pt_pin=...; shape (trailing semicolon)
+        if (!s.endsWith(";")) s += ";"
+        return s
+    }
+
+    private fun findByValue(value: String): EnvItem? =
+        listEnvs("JD_COOKIE").find { it.value == value || it.value.contains(value.trimEnd(';')) }
 
     private fun extractArray(data: Any?): JSONArray = when (data) {
         is JSONArray -> data
@@ -224,12 +318,20 @@ class QingLongApi(private val settings: QingLongSettings) {
         val data = json.opt("data") ?: return null
         when (data) {
             is JSONArray -> if (data.length() > 0) {
-                val o = data.optJSONObject(0) ?: return data.opt(0)?.toString()
-                return (o.opt("id") ?: o.opt("_id"))?.toString()
+                val first = data.opt(0)
+                if (first is JSONObject) {
+                    return (first.opt("id") ?: first.opt("_id"))?.toString()
+                }
+                return first?.toString()
             }
             is JSONObject -> return (data.opt("id") ?: data.opt("_id"))?.toString()
         }
         return null
+    }
+
+    private fun formatErr(prefix: String, body: String): String {
+        val trimmed = body.trim().take(800)
+        return if (trimmed.isEmpty()) prefix else "$prefix | $trimmed"
     }
 
     private fun http(method: String, url: URL, body: String? = null, auth: Boolean = true): String {
@@ -249,8 +351,9 @@ class QingLongApi(private val settings: QingLongSettings) {
         val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
             ?.bufferedReader()?.use { it.readText() } ?: ""
         conn.disconnect()
-        if (code !in 200..299 && text.isBlank()) {
-            throw IllegalStateException("HTTP $code")
+        if (code !in 200..299) {
+            // Surface celebrate "Validation failed" bodies to the UI
+            throw IllegalStateException(formatErr("HTTP $code", text.ifBlank { "(empty body)" }))
         }
         return text
     }
