@@ -5,8 +5,8 @@ import android.webkit.WebView
 
 /**
  * JD login session helpers.
- * CookieManager is process-wide, so we never call removeAllCookies() —
- * that would also log the user out of the in-app QingLong panel.
+ * CookieManager is process-wide within a process. QingLong panel runs in :qlpanel
+ * with its own data directory, so the main process may safely wipe all cookies.
  */
 object WebViewSession {
 
@@ -41,6 +41,23 @@ object WebViewSession {
             clearCache(true)
             clearHistory()
             clearFormData()
+        }
+    }
+
+    /**
+     * Main process only holds JD cookies (QL panel runs in :qlpanel with its own
+     * data dir), so wiping everything is safe. Calls [onDone] on main thread
+     * after removal + flush completed.
+     */
+    fun clearAllAsync(webView: WebView?, onDone: () -> Unit) {
+        val cm = CookieManager.getInstance()
+        webView?.apply { clearCache(true); clearHistory(); clearFormData() }
+        android.webkit.WebStorage.getInstance().deleteAllData()
+        cm.removeAllCookies {
+            cm.removeSessionCookies {
+                cm.flush()
+                onDone()
+            }
         }
     }
 

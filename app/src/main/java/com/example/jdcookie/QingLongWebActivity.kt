@@ -31,6 +31,10 @@ class QingLongWebActivity : AppCompatActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Must run before any WebView is created in this :qlpanel process
+        if (android.os.Build.VERSION.SDK_INT >= 28) {
+            try { WebView.setDataDirectorySuffix("qlpanel") } catch (_: Exception) {}
+        }
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_qinglong_web)
 

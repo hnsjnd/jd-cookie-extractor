@@ -105,4 +105,7 @@
     <string name="push_all_progress">正在推送 %1$d / %2$d</string>
     <string name="push_all_done">全部推送完成：成功 %1$d，失败 %2$d</string>
     <string name="firstrun_need_ql">首次使用请先配置青龙 OpenAPI（client_id / client_secret），以便登录后自动推送 Cookie。</string>
+    <string name="cancel_push">取消推送</string>
+    <string name="step_preparing">正在准备独立登录会话…</string>
 </resources>
+
