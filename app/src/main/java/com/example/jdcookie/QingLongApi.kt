@@ -124,10 +124,10 @@ class QingLongApi(private val settings: QingLongSettings) {
      * Upsert JD_COOKIE. Cookie value must be like: pt_key=xxx;pt_pin=yyy;
      * Strict celebrate schemas — only allowed keys.
      */
-    fun pushOrUpdateCookie(account: Account): PushResult {
+    fun pushOrUpdateCookie(account: Account, nurtureMode: Boolean = false): PushResult {
         ensureToken()
         val match = findCookieEnv(account)
-        val remarks = (account.displayName.ifBlank { account.decodedPin }).ifBlank { "" }
+        val remarks = QingLongConfig.buildRemarks(account, nurtureMode)
         val value = normalizeCookie(account.combined)
 
         return if (match != null) {

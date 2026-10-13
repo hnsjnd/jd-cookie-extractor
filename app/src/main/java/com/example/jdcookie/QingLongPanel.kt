@@ -3,10 +3,13 @@ package com.example.jdcookie
 import android.app.Activity
 import android.content.Intent
 import android.view.LayoutInflater
+import android.view.View
 import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.materialswitch.MaterialSwitch
 import kotlin.concurrent.thread
 
 /** QingLong settings / first-run / open panel helpers. */
@@ -26,6 +29,9 @@ object QingLongPanel {
         ensureDefaultUrl(config)
         return config.load().isConfigured
     }
+
+    fun isNurtureMode(activity: Activity): Boolean =
+        QingLongConfig(activity).isNurtureMode()
 
     fun openPanel(activity: Activity, path: String = "/") {
         val config = QingLongConfig(activity)
@@ -59,10 +65,17 @@ object QingLongPanel {
         val etUrl = view.findViewById<EditText>(R.id.etQlUrl)
         val etId = view.findViewById<EditText>(R.id.etQlClientId)
         val etSecret = view.findViewById<EditText>(R.id.etQlClientSecret)
+        val switchNurture = view.findViewById<MaterialSwitch>(R.id.switchNurtureMode)
+        val tvNurtureTip = view.findViewById<TextView>(R.id.tvNurtureTip)
         val btnTest = view.findViewById<MaterialButton>(R.id.btnTestConnection)
         etUrl.setText(cfg.baseUrl.ifBlank { DEFAULT_BASE_URL })
         etId.setText(cfg.clientId)
         etSecret.setText(cfg.clientSecret)
+        switchNurture.isChecked = cfg.nurtureMode
+        tvNurtureTip.visibility = if (cfg.nurtureMode) View.VISIBLE else View.GONE
+        switchNurture.setOnCheckedChangeListener { _, checked ->
+            tvNurtureTip.visibility = if (checked) View.VISIBLE else View.GONE
+        }
 
         val dialog = MaterialAlertDialogBuilder(activity)
             .setTitle(R.string.qinglong_settings)
@@ -90,7 +103,7 @@ object QingLongPanel {
                 thread {
                     try {
                         val msg = QingLongApi(
-                            QingLongSettings(normalized, id, secret)
+                            QingLongSettings(normalized, id, secret, switchNurture.isChecked)
                         ).testConnection()
                         activity.runOnUiThread {
                             btnTest.isEnabled = true
@@ -123,7 +136,14 @@ object QingLongPanel {
                     Toast.makeText(activity, R.string.ql_need_credentials, Toast.LENGTH_LONG).show()
                     return@setOnClickListener
                 }
-                config.save(QingLongSettings(normalized, id, secret))
+                config.save(
+                    QingLongSettings(
+                        baseUrl = normalized,
+                        clientId = id,
+                        clientSecret = secret,
+                        nurtureMode = switchNurture.isChecked
+                    )
+                )
                 Toast.makeText(activity, R.string.saved, Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
                 onSaved?.invoke()

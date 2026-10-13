@@ -32,6 +32,18 @@
                 android:textColor="?attr/colorOnSurfaceVariant" />
 
             <TextView
+                android:id="@+id/tvNurtureTaskTip"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="?attr/colorSecondaryContainer"
+                android:padding="10dp"
+                android:text="@string/nurture_task_tip"
+                android:textAppearance="?attr/textAppearanceBodySmall"
+                android:textColor="?attr/colorOnSecondaryContainer"
+                android:visibility="gone" />
+
+            <TextView
                 android:id="@+id/tvOverall"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

@@ -143,9 +143,11 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
         val list = store.loadAll()
         adapter.replaceAll(list)
         adapter.setBeanStats(beanById)
+        adapter.setNurtureMode(qlConfig.isNurtureMode())
         tvEmpty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
         rv.visibility = if (list.isEmpty()) View.GONE else View.VISIBLE
         updateBeanSummary()
+        updateNurtureBanner()
     }
 
     private fun updateBeanSummary() {
@@ -305,6 +307,14 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
         }
     }
 
+
+    private fun updateNurtureBanner() {
+        val banner = findViewById<TextView>(R.id.tvNurtureBanner)
+        val on = qlConfig.isNurtureMode()
+        banner.visibility = if (on) View.VISIBLE else View.GONE
+        if (on) banner.text = getString(R.string.nurture_mode_banner)
+    }
+
     override fun onCopy(account: Account) = copy(account.combined)
 
     override fun onRelogin(account: Account) {
@@ -407,7 +417,8 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
             refreshList()
             thread {
                 try {
-                    val result = QingLongApi(qlConfig.load()).pushOrUpdateCookie(account)
+                    val cfg = qlConfig.load()
+                    val result = QingLongApi(cfg).pushOrUpdateCookie(account, cfg.nurtureMode)
                     account.pushStatus = PushStatus.SYNCED
                     account.lastPushedAt = System.currentTimeMillis()
                     account.lastPushMessage = result.message
@@ -456,7 +467,8 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
             thread {
                 var ok = 0
                 var fail = 0
-                val api = QingLongApi(qlConfig.load())
+                val cfg = qlConfig.load()
+                val api = QingLongApi(cfg)
                 accounts.forEachIndexed { index, account ->
                     runOnUiThread {
                         Toast.makeText(
@@ -468,7 +480,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
                     try {
                         account.pushStatus = PushStatus.PUSHING
                         store.update(account)
-                        val result = api.pushOrUpdateCookie(account)
+                        val result = api.pushOrUpdateCookie(account, cfg.nurtureMode)
                         account.pushStatus = PushStatus.SYNCED
                         account.lastPushedAt = System.currentTimeMillis()
                         account.lastPushMessage = result.message

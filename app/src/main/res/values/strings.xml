@@ -140,5 +140,12 @@
     <string name="refresh_all_progress">更新进度 %1$d / %2$d</string>
     <string name="refresh_all_title">更新</string>
     <string name="bean_card_loading">余额 / 今日增加：更新中…</string>
+
+    <string name="nurture_mode_title">养号模式</string>
+    <string name="nurture_mode_tip">开启后：本机将账号标记为「养号」，减少激进跑任务提示；推送到青龙时备注前缀为 [养号]昵称，便于在青龙里筛选。不会调用任何「解黑」类接口，也不会伪造解黑能力。</string>
+    <string name="nurture_mode_banner">养号模式已开启：减少激进任务建议；推送青龙备注带 [养号] 前缀。关闭后恢复普通推送。</string>
+    <string name="nurture_badge">养号</string>
+    <string name="nurture_task_tip">养号模式已开启：建议只做 CK 检测与轻量维护，勿批量运行高风险脚本。推送备注将带 [养号] 前缀。</string>
 </resources>
+
 

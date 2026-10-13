@@ -72,10 +72,19 @@ class TaskProgressActivity : AppCompatActivity() {
 
         prepareRows()
         updateQlButtons()
+        updateNurtureTip()
 
         if (intent.getBooleanExtra("autostart", false)) {
             startCookieCheck()
         }
+    }
+
+    private fun updateNurtureTip() {
+        val tip = findViewById<TextView>(R.id.tvNurtureTaskTip)
+        val on = qlConfig.isNurtureMode()
+        tip.visibility = if (on) View.VISIBLE else View.GONE
+        // Soften push-all suggestion when nurturing
+        findViewById<MaterialButton>(R.id.btnPushAll).alpha = if (on) 0.55f else 1f
     }
 
     private fun updateQlButtons() {
@@ -237,7 +246,7 @@ class TaskProgressActivity : AppCompatActivity() {
             var fail = 0
             for (a in accounts) {
                 try {
-                    api.pushOrUpdateCookie(a)
+                    api.pushOrUpdateCookie(a, cfg.nurtureMode)
                     ok++
                 } catch (_: Exception) {
                     fail++

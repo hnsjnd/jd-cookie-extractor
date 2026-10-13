@@ -28,6 +28,7 @@ class AccountAdapter(
 
     private val fmt = SimpleDateFormat("MM-dd HH:mm", Locale.CHINA)
     private var beanById: Map<String, JdBeanApi.AccountBeanStats> = emptyMap()
+    private var nurtureMode: Boolean = false
 
     class VH(v: View) : RecyclerView.ViewHolder(v) {
         val tvName: TextView = v.findViewById(R.id.tvName)
@@ -50,7 +51,11 @@ class AccountAdapter(
     override fun onBindViewHolder(holder: VH, position: Int) {
         val a = items[position]
         val ctx = holder.itemView.context
-        holder.tvName.text = a.displayName
+        holder.tvName.text = if (nurtureMode) {
+            ctx.getString(R.string.nurture_badge) + " · " + a.displayName
+        } else {
+            a.displayName
+        }
         holder.tvPin.text = "pt_pin: ${a.decodedPin}"
         val t = if (a.updatedAt > 0) fmt.format(Date(a.updatedAt)) else "-"
         val c = if (a.lastCheckedAt > 0) fmt.format(Date(a.lastCheckedAt)) else "-"
@@ -172,6 +177,12 @@ class AccountAdapter(
 
     fun setBeanStats(stats: Map<String, JdBeanApi.AccountBeanStats>) {
         beanById = stats
+        notifyDataSetChanged()
+    }
+
+    fun setNurtureMode(on: Boolean) {
+        if (nurtureMode == on) return
+        nurtureMode = on
         notifyDataSetChanged()
     }
 }

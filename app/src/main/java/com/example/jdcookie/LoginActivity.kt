@@ -237,11 +237,12 @@ class LoginActivity : AppCompatActivity() {
             try {
                 if (pushCancelled) return@thread
                 runOnUiThread { setStep(getString(R.string.step_pushing), true) }
-                val api = QingLongApi(qlConfig.load())
+                val cfg = qlConfig.load()
+                val api = QingLongApi(cfg)
                 api.ensureToken()
                 if (pushCancelled) return@thread
                 runOnUiThread { setStep(getString(R.string.step_pushing), true) }
-                val result = api.pushOrUpdateCookie(account)
+                val result = api.pushOrUpdateCookie(account, cfg.nurtureMode)
                 if (pushCancelled) return@thread
                 account.pushStatus = PushStatus.SYNCED
                 account.lastPushedAt = System.currentTimeMillis()
