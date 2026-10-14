@@ -59,6 +59,10 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
         beanCache = BeanStatsCache(this)
         qlConfig = QingLongConfig(this)
         QingLongPanel.ensureDefaultUrl(qlConfig)
+        CkInvalidAlert.ensureChannel(this)
+        if (qlConfig.isNotifyOnInvalid()) {
+            CkInvalidAlert.requestPermissionIfNeeded(this)
+        }
 
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
         toolbar.setOnMenuItemClickListener { item ->
@@ -148,6 +152,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
         rv.visibility = if (list.isEmpty()) View.GONE else View.VISIBLE
         updateBeanSummary()
         updateNurtureBanner()
+        updateInvalidBanner()
     }
 
     private fun updateBeanSummary() {
@@ -258,6 +263,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
                             refreshProgress.visibility = View.GONE
                             tvRefreshProgress.visibility = View.GONE
                             refreshList()
+                            handleInvalidAlert()
                             Toast.makeText(this, R.string.bean_refresh_done, Toast.LENGTH_SHORT)
                                 .show()
                         }
@@ -313,6 +319,27 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
         val on = qlConfig.isNurtureMode()
         banner.visibility = if (on) View.VISIBLE else View.GONE
         if (on) banner.text = getString(R.string.nurture_mode_banner)
+    }
+
+    private fun updateInvalidBanner() {
+        val banner = findViewById<TextView>(R.id.tvInvalidBanner)
+        val invalid = store.loadAll().filter { it.status == AccountStatus.EXPIRED }
+        if (invalid.isEmpty()) {
+            banner.visibility = View.GONE
+        } else {
+            banner.visibility = View.VISIBLE
+            banner.text = CkInvalidAlert.formatBanner(this, invalid.map { it.displayName })
+        }
+    }
+
+    /** After CK check / 更新 / QL 禁用：刷新横幅并按需发通知。 */
+    private fun handleInvalidAlert(extraInvalid: List<Account> = emptyList()) {
+        updateInvalidBanner()
+        val fromStore = CkInvalidAlert.expiredOf(store.loadAll())
+        val merged = (fromStore + extraInvalid).distinctBy { it.id }
+        if (merged.isNotEmpty()) {
+            CkInvalidAlert.notifyIfNeeded(this, merged)
+        }
     }
 
     override fun onCopy(account: Account) = copy(account.combined)
@@ -405,6 +432,11 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
             store.update(account)
             runOnUiThread {
                 refreshList()
+                if (result.status == AccountStatus.EXPIRED) {
+                    handleInvalidAlert(listOf(account))
+                } else {
+                    updateInvalidBanner()
+                }
                 Toast.makeText(this, "${account.displayName}: ${result.message}", Toast.LENGTH_SHORT).show()
             }
         }
@@ -419,13 +451,26 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
                 try {
                     val cfg = qlConfig.load()
                     val result = QingLongApi(cfg).pushOrUpdateCookie(account, cfg.nurtureMode)
-                    account.pushStatus = PushStatus.SYNCED
-                    account.lastPushedAt = System.currentTimeMillis()
-                    account.lastPushMessage = result.message
+                    if (result.disabledLikelyInvalid) {
+                        account.pushStatus = PushStatus.FAILED
+                        account.lastPushMessage = result.message
+                        // Mark CK expired so banner/badge/notification fire
+                        if (account.status != AccountStatus.EXPIRED) {
+                            account.status = AccountStatus.EXPIRED
+                            account.lastMessage = getString(R.string.ck_invalid_ql_disabled)
+                        }
+                    } else {
+                        account.pushStatus = PushStatus.SYNCED
+                        account.lastPushedAt = System.currentTimeMillis()
+                        account.lastPushMessage = result.message
+                    }
                     account.qlEnvId = result.envId
                     store.update(account)
                     runOnUiThread {
                         refreshList()
+                        if (result.disabledLikelyInvalid) {
+                            handleInvalidAlert(listOf(account))
+                        }
                         Toast.makeText(this, result.message, Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Exception) {
@@ -481,12 +526,23 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
                         account.pushStatus = PushStatus.PUSHING
                         store.update(account)
                         val result = api.pushOrUpdateCookie(account, cfg.nurtureMode)
-                        account.pushStatus = PushStatus.SYNCED
-                        account.lastPushedAt = System.currentTimeMillis()
-                        account.lastPushMessage = result.message
                         account.qlEnvId = result.envId
-                        store.update(account)
-                        ok++
+                        if (result.disabledLikelyInvalid) {
+                            account.pushStatus = PushStatus.FAILED
+                            account.lastPushMessage = result.message
+                            if (account.status != AccountStatus.EXPIRED) {
+                                account.status = AccountStatus.EXPIRED
+                                account.lastMessage = getString(R.string.ck_invalid_ql_disabled)
+                            }
+                            store.update(account)
+                            fail++
+                        } else {
+                            account.pushStatus = PushStatus.SYNCED
+                            account.lastPushedAt = System.currentTimeMillis()
+                            account.lastPushMessage = result.message
+                            store.update(account)
+                            ok++
+                        }
                     } catch (e: Exception) {
                         account.pushStatus = PushStatus.FAILED
                         account.lastPushMessage = e.message ?: "失败"
@@ -496,6 +552,8 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
                     runOnUiThread { refreshList() }
                 }
                 runOnUiThread {
+                    refreshList()
+                    handleInvalidAlert()
                     Toast.makeText(
                         this,
                         getString(R.string.push_all_done, ok, fail),

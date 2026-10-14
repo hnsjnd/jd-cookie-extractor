@@ -28,6 +28,20 @@
                 android:textAppearance="?attr/textAppearanceTitleMedium"
                 android:textColor="?attr/colorOnSurface" />
 
+            <TextView
+                android:id="@+id/tvInvalidBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:background="@color/md_theme_error"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="2dp"
+                android:text="@string/ck_invalid_badge"
+                android:textColor="@color/md_theme_on_error"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
             <com.google.android.material.chip.Chip
                 android:id="@+id/chipStatus"
                 style="@style/Widget.Material3.Chip.Assist"

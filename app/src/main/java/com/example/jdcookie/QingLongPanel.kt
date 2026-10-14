@@ -67,6 +67,7 @@ object QingLongPanel {
         val etSecret = view.findViewById<EditText>(R.id.etQlClientSecret)
         val switchNurture = view.findViewById<MaterialSwitch>(R.id.switchNurtureMode)
         val tvNurtureTip = view.findViewById<TextView>(R.id.tvNurtureTip)
+        val switchNotify = view.findViewById<MaterialSwitch>(R.id.switchNotifyInvalid)
         val btnTest = view.findViewById<MaterialButton>(R.id.btnTestConnection)
         etUrl.setText(cfg.baseUrl.ifBlank { DEFAULT_BASE_URL })
         etId.setText(cfg.clientId)
@@ -76,6 +77,7 @@ object QingLongPanel {
         switchNurture.setOnCheckedChangeListener { _, checked ->
             tvNurtureTip.visibility = if (checked) View.VISIBLE else View.GONE
         }
+        switchNotify.isChecked = cfg.notifyOnInvalid
 
         val dialog = MaterialAlertDialogBuilder(activity)
             .setTitle(R.string.qinglong_settings)
@@ -103,7 +105,7 @@ object QingLongPanel {
                 thread {
                     try {
                         val msg = QingLongApi(
-                            QingLongSettings(normalized, id, secret, switchNurture.isChecked)
+                            QingLongSettings(normalized, id, secret, switchNurture.isChecked, switchNotify.isChecked)
                         ).testConnection()
                         activity.runOnUiThread {
                             btnTest.isEnabled = true
@@ -141,9 +143,14 @@ object QingLongPanel {
                         baseUrl = normalized,
                         clientId = id,
                         clientSecret = secret,
-                        nurtureMode = switchNurture.isChecked
+                        nurtureMode = switchNurture.isChecked,
+                        notifyOnInvalid = switchNotify.isChecked
                     )
                 )
+                if (switchNotify.isChecked) {
+                    CkInvalidAlert.ensureChannel(activity)
+                    CkInvalidAlert.requestPermissionIfNeeded(activity)
+                }
                 Toast.makeText(activity, R.string.saved, Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
                 onSaved?.invoke()

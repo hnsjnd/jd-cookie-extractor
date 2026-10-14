@@ -146,6 +146,20 @@
     <string name="nurture_mode_banner">养号模式已开启：减少激进任务建议；推送青龙备注带 [养号] 前缀。关闭后恢复普通推送。</string>
     <string name="nurture_badge">养号</string>
     <string name="nurture_task_tip">养号模式已开启：建议只做 CK 检测与轻量维护，勿批量运行高风险脚本。推送备注将带 [养号] 前缀。</string>
+
+    <string name="notify_on_invalid_title">失效时通知</string>
+    <string name="notify_on_invalid_tip">检测到 Cookie 失效时发送系统通知（渠道：京东CK提醒）。可在系统设置中关闭通知权限。</string>
+    <string name="ck_invalid_badge">失效</string>
+    <string name="ck_invalid_banner_title">Cookie 已失效</string>
+    <string name="ck_invalid_banner_fmt">以下账号 Cookie 已失效，请重新登录：
+%1$s</string>
+    <string name="ck_invalid_notif_channel">京东CK提醒</string>
+    <string name="ck_invalid_notif_channel_desc">Cookie 失效时提醒重新登录</string>
+    <string name="ck_invalid_notif_title">京东 Cookie 失效</string>
+    <string name="ck_invalid_notif_body">%1$d 个账号已失效：%2$s</string>
+    <string name="ck_invalid_ql_disabled">青龙已禁用该变量（可能因 Cookie 失效）</string>
+    <string name="ck_invalid_perm_rationale">需要通知权限以便在 Cookie 失效时提醒你。</string>
 </resources>
+
 
 

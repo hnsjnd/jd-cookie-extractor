@@ -45,7 +45,7 @@ class QingLongApi(private val settings: QingLongSettings) {
         val idString: String get() = id?.toString() ?: ""
     }
 
-    data class PushResult(val message: String, val envId: String)
+    data class PushResult(val message: String, val envId: String, val disabledLikelyInvalid: Boolean = false)
 
     private var token: String? = null
 
@@ -130,10 +130,30 @@ class QingLongApi(private val settings: QingLongSettings) {
         val remarks = QingLongConfig.buildRemarks(account, nurtureMode)
         val value = normalizeCookie(account.combined)
 
-        return if (match != null) {
+        // Already disabled on QL before push — often because scripts marked CK invalid
+        val wasDisabled = match != null && (match.status == 1 || match.isDisabled == 1)
+
+        val result = if (match != null) {
             updateEnv(match, value, remarks)
         } else {
             createEnv(value, remarks)
+        }
+
+        // Re-check env status after enable attempt
+        val after = findCookieEnv(account)
+        val stillDisabled = after != null && (after.status == 1 || after.isDisabled == 1)
+        val msgHint = result.message
+        val looksInvalid = wasDisabled || stillDisabled ||
+            msgHint.contains("失效") || msgHint.contains("无效") || msgHint.contains("禁用")
+        return if (looksInvalid && (wasDisabled || stillDisabled)) {
+            result.copy(
+                message = if (stillDisabled || wasDisabled) {
+                    "青龙变量已禁用（可能因 Cookie 失效）· ${result.message}"
+                } else result.message,
+                disabledLikelyInvalid = true
+            )
+        } else {
+            result
         }
     }
 

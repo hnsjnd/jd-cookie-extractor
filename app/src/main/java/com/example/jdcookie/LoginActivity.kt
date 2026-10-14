@@ -244,11 +244,22 @@ class LoginActivity : AppCompatActivity() {
                 runOnUiThread { setStep(getString(R.string.step_pushing), true) }
                 val result = api.pushOrUpdateCookie(account, cfg.nurtureMode)
                 if (pushCancelled) return@thread
-                account.pushStatus = PushStatus.SYNCED
-                account.lastPushedAt = System.currentTimeMillis()
-                account.lastPushMessage = result.message
                 account.qlEnvId = result.envId
-                store.update(account)
+                if (result.disabledLikelyInvalid) {
+                    account.pushStatus = PushStatus.FAILED
+                    account.lastPushMessage = result.message
+                    account.status = AccountStatus.EXPIRED
+                    account.lastMessage = getString(R.string.ck_invalid_ql_disabled)
+                    store.update(account)
+                    runOnUiThread {
+                        CkInvalidAlert.notifyIfNeeded(this@LoginActivity, listOf(account))
+                    }
+                } else {
+                    account.pushStatus = PushStatus.SYNCED
+                    account.lastPushedAt = System.currentTimeMillis()
+                    account.lastPushMessage = result.message
+                    store.update(account)
+                }
                 runOnUiThread {
                     pushing.set(false)
                     btnCancel.visibility = View.GONE

@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.chip.Chip
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -37,7 +38,9 @@ class AccountAdapter(
         val tvPush: TextView = v.findViewById(R.id.tvPush)
         val tvBeans: TextView = v.findViewById(R.id.tvBeans)
         val tvBeansExpire: TextView = v.findViewById(R.id.tvBeansExpire)
+        val tvInvalidBadge: TextView = v.findViewById(R.id.tvInvalidBadge)
         val chipStatus: Chip = v.findViewById(R.id.chipStatus)
+        val card: MaterialCardView = v as MaterialCardView
         val btnCopy: MaterialButton = v.findViewById(R.id.btnCopy)
         val btnRelogin: MaterialButton = v.findViewById(R.id.btnRelogin)
         val btnMore: MaterialButton = v.findViewById(R.id.btnMore)
@@ -80,6 +83,16 @@ class AccountAdapter(
         )
         bindBeans(holder, a)
         bindStatus(holder.chipStatus, a)
+        val invalid = a.status == AccountStatus.EXPIRED
+        holder.tvInvalidBadge.visibility = if (invalid) View.VISIBLE else View.GONE
+        if (invalid) {
+            holder.card.strokeWidth = (2 * ctx.resources.displayMetrics.density).toInt()
+            holder.card.strokeColor = ctx.getColor(R.color.md_theme_error)
+            holder.card.setCardBackgroundColor(ctx.getColor(R.color.status_err_bg))
+        } else {
+            holder.card.strokeWidth = 0
+            holder.card.setCardBackgroundColor(ctx.getColor(R.color.md_theme_surface))
+        }
         holder.btnCopy.setOnClickListener { listener.onCopy(a) }
         holder.btnRelogin.setOnClickListener { listener.onRelogin(a) }
         holder.btnMore.setOnClickListener { v ->

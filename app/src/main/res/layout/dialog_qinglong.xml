@@ -63,6 +63,23 @@
             android:textColor="?attr/colorOnSurfaceVariant"
             android:visibility="gone" />
 
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/switchNotifyInvalid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/notify_on_invalid_title" />
+
+        <TextView
+            android:id="@+id/tvNotifyInvalidTip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/notify_on_invalid_tip"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="?attr/colorOnSurfaceVariant" />
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnTestConnection"
             style="@style/Widget.Material3.Button.OutlinedButton"

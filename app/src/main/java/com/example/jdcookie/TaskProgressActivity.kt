@@ -39,6 +39,7 @@ class TaskProgressActivity : AppCompatActivity() {
 
         store = AccountStore(this)
         qlConfig = QingLongConfig(this)
+        CkInvalidAlert.ensureChannel(this)
 
         findViewById<MaterialToolbar>(R.id.toolbar).setNavigationOnClickListener { finish() }
 
@@ -175,9 +176,14 @@ class TaskProgressActivity : AppCompatActivity() {
             runOnUiThread {
                 running = false
                 findViewById<MaterialButton>(R.id.btnStartCheck).isEnabled = true
-                val valid = store.loadAll().count { it.status == AccountStatus.VALID }
-                val expired = store.loadAll().count { it.status == AccountStatus.EXPIRED }
+                val all = store.loadAll()
+                val valid = all.count { it.status == AccountStatus.VALID }
+                val expired = all.count { it.status == AccountStatus.EXPIRED }
                 tvOverall.text = getString(R.string.overall_done, valid, expired, total)
+                val invalid = CkInvalidAlert.expiredOf(all)
+                if (invalid.isNotEmpty()) {
+                    CkInvalidAlert.notifyIfNeeded(this, invalid)
+                }
                 Toast.makeText(this, R.string.check_finished, Toast.LENGTH_SHORT).show()
             }
         }
@@ -244,15 +250,36 @@ class TaskProgressActivity : AppCompatActivity() {
             val api = QingLongApi(cfg)
             var ok = 0
             var fail = 0
+            val invalidFromQl = mutableListOf<Account>()
             for (a in accounts) {
                 try {
-                    api.pushOrUpdateCookie(a, cfg.nurtureMode)
-                    ok++
+                    val result = api.pushOrUpdateCookie(a, cfg.nurtureMode)
+                    if (result.disabledLikelyInvalid) {
+                        a.pushStatus = PushStatus.FAILED
+                        a.lastPushMessage = result.message
+                        if (a.status != AccountStatus.EXPIRED) {
+                            a.status = AccountStatus.EXPIRED
+                            a.lastMessage = getString(R.string.ck_invalid_ql_disabled)
+                        }
+                        store.update(a)
+                        invalidFromQl.add(a)
+                        fail++
+                    } else {
+                        a.pushStatus = PushStatus.SYNCED
+                        a.lastPushedAt = System.currentTimeMillis()
+                        a.lastPushMessage = result.message
+                        a.qlEnvId = result.envId
+                        store.update(a)
+                        ok++
+                    }
                 } catch (_: Exception) {
                     fail++
                 }
             }
             runOnUiThread {
+                if (invalidFromQl.isNotEmpty()) {
+                    CkInvalidAlert.notifyIfNeeded(this, invalidFromQl)
+                }
                 Toast.makeText(this, "推送完成：成功 $ok，失败 $fail", Toast.LENGTH_LONG).show()
             }
         }

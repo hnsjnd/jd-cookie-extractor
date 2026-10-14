@@ -37,6 +37,19 @@
             android:textColor="?attr/colorOnSecondaryContainer"
             android:visibility="gone" />
 
+        <TextView
+            android:id="@+id/tvInvalidBanner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="10dp"
+            android:layout_marginTop="8dp"
+            android:background="@color/md_theme_error_container"
+            android:padding="10dp"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="@color/md_theme_on_error_container"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardBeanSummary"
             android:layout_width="match_parent"
