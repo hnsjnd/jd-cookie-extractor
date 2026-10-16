@@ -355,6 +355,46 @@ class QingLongApi(private val settings: QingLongSettings) {
      * Upsert meituanCookie. Value must be raw token only (e.g. Ag…), NOT token=…
      * One env per Meituan account, mirroring JD_COOKIE pattern.
      */
+
+    fun findElmEnv(account: ElmAccount): EnvItem? {
+        val envs = listEnvs(ElmAccountStore.ENV_NAME)
+        if (account.qlEnvId.isNotBlank()) {
+            envs.find { it.idString == account.qlEnvId && it.name == ElmAccountStore.ENV_NAME }
+                ?.let { return it }
+        }
+        val cookie = account.cookie
+        val uid = account.userId
+        return envs.find { env ->
+            env.name == ElmAccountStore.ENV_NAME && (
+                env.value == cookie ||
+                    env.value.trim() == cookie.trim() ||
+                    (uid.isNotBlank() && (
+                        env.value.contains("USERID=$uid") ||
+                            env.value.contains("unb=$uid")
+                        )) ||
+                    (account.nickname.isNotBlank() && env.remarks == account.nickname) ||
+                    (account.displayName.isNotBlank() && env.remarks == account.displayName)
+                )
+        }
+    }
+
+    /**
+     * Upsert elmck. Value is full cookie string (cookie2/unb/USERID/SID/…).
+     * One env per Ele.me account, mirroring meituanCookie / JD_COOKIE.
+     */
+    fun pushOrUpdateElm(account: ElmAccount): PushResult {
+        ensureToken()
+        val envName = ElmAccountStore.ENV_NAME
+        val match = findElmEnv(account)
+        val remarks = account.displayName.ifBlank { account.cookiePreview }
+        val value = ElmAccountStore.normalizeCookie(account.cookie)
+        return if (match != null) {
+            updateEnv(match, value, remarks, envName)
+        } else {
+            createEnv(value, remarks, envName)
+        }
+    }
+
     fun pushOrUpdateMeituan(account: MeituanAccount): PushResult {
         ensureToken()
         val envName = MeituanAccountStore.ENV_NAME

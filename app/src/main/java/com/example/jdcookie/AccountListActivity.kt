@@ -28,7 +28,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
-class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, MeituanAccountAdapter.Listener {
+class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, MeituanAccountAdapter.Listener, ElmAccountAdapter.Listener {
 
     private lateinit var store: AccountStore
     private lateinit var beanCache: BeanStatsCache
@@ -49,6 +49,11 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
     private lateinit var mtAdapter: MeituanAccountAdapter
     private lateinit var rvMeituan: RecyclerView
     private lateinit var tvEmptyMt: TextView
+    private lateinit var elmStore: ElmAccountStore
+    private lateinit var elmAdapter: ElmAccountAdapter
+    private lateinit var rvElm: RecyclerView
+    private lateinit var tvEmptyElm: TextView
+    private lateinit var zoneElm: View
     private lateinit var fabAdd: ExtendedFloatingActionButton
 
     private var currentZone = ZONE_JD
@@ -69,7 +74,8 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
     companion object {
         private const val ZONE_JD = 0
         private const val ZONE_MEITUAN = 1
-        private const val ZONE_MICROSOFT = 2
+        private const val ZONE_ELM = 2
+        private const val ZONE_MICROSOFT = 3
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -78,6 +84,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
 
         store = AccountStore(this)
         mtStore = MeituanAccountStore(this)
+        elmStore = ElmAccountStore(this)
         beanCache = BeanStatsCache(this)
         qlConfig = QingLongConfig(this)
         QingLongPanel.ensureDefaultUrl(qlConfig)
@@ -94,7 +101,11 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
                     true
                 }
                 R.id.action_push_all -> {
-                    if (currentZone == ZONE_MEITUAN) pushAllMeituan() else pushAll()
+                    when (currentZone) {
+                        ZONE_MEITUAN -> pushAllMeituan()
+                        ZONE_ELM -> pushAllElm()
+                        else -> pushAll()
+                    }
                     true
                 }
                 R.id.action_tasks -> {
@@ -142,16 +153,23 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
 
         zoneJd = findViewById(R.id.zoneJd)
         zoneMeituan = findViewById(R.id.zoneMeituan)
+        zoneElm = findViewById(R.id.zoneElm)
         zoneMicrosoft = findViewById(R.id.zoneMicrosoft)
         rvMeituan = findViewById(R.id.rvMeituan)
         tvEmptyMt = findViewById(R.id.tvEmptyMt)
         mtAdapter = MeituanAccountAdapter(mutableListOf(), this)
         rvMeituan.layoutManager = LinearLayoutManager(this)
         rvMeituan.adapter = mtAdapter
+        rvElm = findViewById(R.id.rvElm)
+        tvEmptyElm = findViewById(R.id.tvEmptyElm)
+        elmAdapter = ElmAccountAdapter(mutableListOf(), this)
+        rvElm.layoutManager = LinearLayoutManager(this)
+        rvElm.adapter = elmAdapter
 
         tabZones = findViewById(R.id.tabZones)
         tabZones.addTab(tabZones.newTab().setText(R.string.zone_jd))
         tabZones.addTab(tabZones.newTab().setText(R.string.zone_meituan))
+        tabZones.addTab(tabZones.newTab().setText(R.string.zone_elm))
         tabZones.addTab(tabZones.newTab().setText(R.string.zone_microsoft))
         tabZones.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
@@ -169,6 +187,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
         loadCachedBeans()
         refreshList()
         refreshMeituanList()
+        refreshElmList()
         showZone(ZONE_JD)
     }
 
@@ -178,6 +197,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
                 loginLauncher.launch(Intent(this, LoginActivity::class.java))
             }
             ZONE_MEITUAN -> showAddMeituanChooser()
+            ZONE_ELM -> showPasteElmDialog()
             else -> { /* microsoft: no fab action */ }
         }
     }
@@ -186,6 +206,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
         currentZone = zone
         zoneJd.visibility = if (zone == ZONE_JD) View.VISIBLE else View.GONE
         zoneMeituan.visibility = if (zone == ZONE_MEITUAN) View.VISIBLE else View.GONE
+        zoneElm.visibility = if (zone == ZONE_ELM) View.VISIBLE else View.GONE
         zoneMicrosoft.visibility = if (zone == ZONE_MICROSOFT) View.VISIBLE else View.GONE
         fabAdd.visibility = if (zone == ZONE_MICROSOFT) View.GONE else View.VISIBLE
         when (zone) {
@@ -198,6 +219,11 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
                 findViewById<MaterialToolbar>(R.id.toolbar).title = getString(R.string.zone_meituan_title)
                 refreshMeituanList()
             }
+            ZONE_ELM -> {
+                fabAdd.text = getString(R.string.add_elm)
+                findViewById<MaterialToolbar>(R.id.toolbar).title = getString(R.string.zone_elm_title)
+                refreshElmList()
+            }
             ZONE_MICROSOFT -> {
                 findViewById<MaterialToolbar>(R.id.toolbar).title = getString(R.string.zone_microsoft)
             }
@@ -208,9 +234,9 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
     private fun updateMenuForZone() {
         val menu = findViewById<MaterialToolbar>(R.id.toolbar).menu
         val jdOnly = currentZone == ZONE_JD
-        val mtOnly = currentZone == ZONE_MEITUAN
+        val pushZones = currentZone == ZONE_JD || currentZone == ZONE_MEITUAN || currentZone == ZONE_ELM
         menu.findItem(R.id.action_refresh_beans)?.isVisible = jdOnly
-        menu.findItem(R.id.action_push_all)?.isVisible = jdOnly || mtOnly
+        menu.findItem(R.id.action_push_all)?.isVisible = pushZones
         menu.findItem(R.id.action_tasks)?.isVisible = jdOnly
         menu.findItem(R.id.action_check_all)?.isVisible = jdOnly
         menu.findItem(R.id.action_copy_all)?.isVisible = jdOnly
@@ -220,6 +246,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
         super.onResume()
         refreshList()
         if (currentZone == ZONE_MEITUAN) refreshMeituanList()
+        if (currentZone == ZONE_ELM) refreshElmList()
     }
 
     private fun loadCachedBeans() {
@@ -868,6 +895,187 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
                 }
                 runOnUiThread {
                     refreshMeituanList()
+                    Toast.makeText(
+                        this,
+                        getString(R.string.push_all_done, ok, fail),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+
+    // endregion
+
+    // region Ele.me (饿了么)
+
+    private fun refreshElmList() {
+        val list = elmStore.loadAll()
+        elmAdapter.replaceAll(list)
+        tvEmptyElm.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+        rvElm.visibility = if (list.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    private fun showPasteElmDialog() {
+        val view = LayoutInflater.from(this).inflate(R.layout.dialog_paste_elm, null)
+        val etNick = view.findViewById<EditText>(R.id.etElmNickname)
+        val etCookie = view.findViewById<EditText>(R.id.etElmCookie)
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.elm_paste_title)
+            .setView(view)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.save) { _, _ ->
+                val raw = etCookie.text.toString()
+                if (!ElmAccountStore.isValidCookie(raw)) {
+                    Toast.makeText(this, R.string.elm_cookie_empty, Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                val nick = etNick.text.toString().trim()
+                val account = elmStore.upsertByCookie(raw, nick.ifBlank { null })
+                refreshElmList()
+                QingLongPanel.ensureReady(this) {
+                    pushElmAccount(account)
+                }
+            }
+            .show()
+    }
+
+    override fun onCopy(account: ElmAccount) = copy(account.cookie, "elmck")
+
+    override fun onPushQl(account: ElmAccount) {
+        QingLongPanel.ensureReady(this) { pushElmAccount(account) }
+    }
+
+    override fun onRename(account: ElmAccount) {
+        val input = EditText(this).apply {
+            setText(account.nickname.ifBlank { account.displayName })
+            setSelection(text.length)
+            hint = getString(R.string.rename_hint)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.rename)
+            .setView(input)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.confirm) { _, _ ->
+                elmStore.rename(account.id, input.text.toString())
+                refreshElmList()
+            }
+            .show()
+    }
+
+    override fun onDelete(account: ElmAccount) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.confirm_delete_ql_title)
+            .setMessage(getString(R.string.confirm_delete_elm_ql_msg, account.displayName))
+            .setNeutralButton(R.string.delete_local_only) { _, _ ->
+                elmStore.delete(account.id)
+                refreshElmList()
+            }
+            .setNegativeButton(R.string.delete_and_disable_ql) { _, _ ->
+                deleteElmLocalAndQl(account, remove = false)
+            }
+            .setPositiveButton(R.string.delete_and_remove_ql) { _, _ ->
+                deleteElmLocalAndQl(account, remove = true)
+            }
+            .show()
+    }
+
+    private fun deleteElmLocalAndQl(account: ElmAccount, remove: Boolean) {
+        elmStore.delete(account.id)
+        refreshElmList()
+        if (!QingLongPanel.isReady(this)) {
+            Toast.makeText(this, R.string.ql_not_configured, Toast.LENGTH_SHORT).show()
+            return
+        }
+        thread {
+            try {
+                val api = QingLongApi(qlConfig.load())
+                val envId = account.qlEnvId.ifBlank {
+                    api.findElmEnv(account)?.idString.orEmpty()
+                }
+                if (envId.isBlank()) {
+                    runOnUiThread {
+                        Toast.makeText(this, "本机已删除；青龙上未找到对应变量", Toast.LENGTH_LONG).show()
+                    }
+                    return@thread
+                }
+                val msg = if (remove) api.deleteEnv(envId) else api.disableEnv(envId)
+                runOnUiThread { Toast.makeText(this, msg, Toast.LENGTH_SHORT).show() }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this, "本机已删除；青龙操作失败: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun pushElmAccount(account: ElmAccount) {
+        account.pushStatus = PushStatus.PUSHING
+        elmStore.update(account)
+        refreshElmList()
+        thread {
+            try {
+                val result = QingLongApi(qlConfig.load()).pushOrUpdateElm(account)
+                account.qlEnvId = result.envId
+                account.pushStatus = PushStatus.SYNCED
+                account.lastPushedAt = System.currentTimeMillis()
+                account.lastPushMessage = result.message
+                elmStore.update(account)
+                runOnUiThread {
+                    refreshElmList()
+                    Toast.makeText(this, result.message, Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                account.pushStatus = PushStatus.FAILED
+                account.lastPushMessage = e.message ?: "失败"
+                elmStore.update(account)
+                runOnUiThread {
+                    refreshElmList()
+                    Toast.makeText(this, "推送失败: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun pushAllElm() {
+        QingLongPanel.ensureReady(this) {
+            val accounts = elmStore.loadAll()
+            if (accounts.isEmpty()) {
+                Toast.makeText(this, R.string.no_accounts, Toast.LENGTH_SHORT).show()
+                return@ensureReady
+            }
+            thread {
+                var ok = 0
+                var fail = 0
+                val api = QingLongApi(qlConfig.load())
+                accounts.forEachIndexed { index, account ->
+                    runOnUiThread {
+                        Toast.makeText(
+                            this,
+                            getString(R.string.push_all_progress, index + 1, accounts.size),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    try {
+                        account.pushStatus = PushStatus.PUSHING
+                        elmStore.update(account)
+                        val result = api.pushOrUpdateElm(account)
+                        account.qlEnvId = result.envId
+                        account.pushStatus = PushStatus.SYNCED
+                        account.lastPushedAt = System.currentTimeMillis()
+                        account.lastPushMessage = result.message
+                        elmStore.update(account)
+                        ok++
+                    } catch (e: Exception) {
+                        account.pushStatus = PushStatus.FAILED
+                        account.lastPushMessage = e.message ?: "失败"
+                        elmStore.update(account)
+                        fail++
+                    }
+                    runOnUiThread { refreshElmList() }
+                }
+                runOnUiThread {
+                    refreshElmList()
                     Toast.makeText(
                         this,
                         getString(R.string.push_all_done, ok, fail),

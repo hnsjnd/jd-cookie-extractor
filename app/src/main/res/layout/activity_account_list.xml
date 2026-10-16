@@ -178,6 +178,35 @@
             android:visibility="gone" />
     </FrameLayout>
 
+
+    <!-- 饿了么区 -->
+    <FrameLayout
+        android:id="@+id/zoneElm"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvElm"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:padding="10dp"
+            android:paddingBottom="88dp" />
+
+        <TextView
+            android:id="@+id/tvEmptyElm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:padding="32dp"
+            android:text="@string/empty_elm"
+            android:textAppearance="?attr/textAppearanceBodyLarge"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:visibility="gone" />
+    </FrameLayout>
+
     <!-- 微软区占位 -->
     <FrameLayout
         android:id="@+id/zoneMicrosoft"
