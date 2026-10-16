@@ -159,6 +159,29 @@
     <string name="ck_invalid_notif_body">%1$d 个账号已失效：%2$s</string>
     <string name="ck_invalid_ql_disabled">青龙已禁用该变量（可能因 Cookie 失效）</string>
     <string name="ck_invalid_perm_rationale">需要通知权限以便在 Cookie 失效时提醒你。</string>
+
+    <string name="zone_jd">京豆</string>
+    <string name="zone_meituan">美团</string>
+    <string name="zone_microsoft">微软</string>
+    <string name="zone_meituan_title">美团账号</string>
+    <string name="zone_coming_soon">即将支持</string>
+    <string name="empty_meituan">还没有美团账号\n点右下角添加：WebView 登录或粘贴 token，保存后推送到青龙 meituanCookie</string>
+    <string name="add_meituan">添加美团</string>
+    <string name="meituan_add_webview">WebView 登录提取</string>
+    <string name="meituan_add_paste">手动粘贴 token</string>
+    <string name="meituan_paste_title">粘贴美团 token</string>
+    <string name="meituan_token_hint">token（通常以 Ag 开头，不要带 token=）</string>
+    <string name="meituan_token_tip">推送到青龙环境变量名：meituanCookie；值为纯 token。也可粘贴含 token= 的片段，会自动提取。</string>
+    <string name="meituan_token_empty">请填写 token</string>
+    <string name="meituan_login_title">美团登录 · 提取 token</string>
+    <string name="meituan_step_wait_login">请在下方登录美团；登录后将自动提取 token。若无法登录请返回用「粘贴 token」。</string>
+    <string name="meituan_step_pushing">推送中…正在更新 meituanCookie</string>
+    <string name="confirm_delete_mt_ql_msg">删除本机「%1$s」？是否同时处理青龙上的 meituanCookie？</string>
+    <string name="status_synced_short">已同步</string>
+    <string name="status_failed_short">失败</string>
+    <string name="status_pushing_short">推送中</string>
+    <string name="status_unsynced_short">未同步</string>
+
 </resources>
 
 

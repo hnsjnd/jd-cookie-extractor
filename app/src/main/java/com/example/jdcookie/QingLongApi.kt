@@ -157,11 +157,11 @@ class QingLongApi(private val settings: QingLongSettings) {
         }
     }
 
-    private fun createEnv(value: String, remarks: String): PushResult {
+    private fun createEnv(value: String, remarks: String, envName: String = "JD_COOKIE"): PushResult {
         // POST body: array of { value, name, remarks? } — nothing else
         val item = JSONObject()
             .put("value", value)
-            .put("name", "JD_COOKIE")
+            .put("name", envName)
             .put("remarks", remarks)
         val payload = JSONArray().put(item)
         val body = http("POST", URL("${base()}/open/envs"), payload.toString())
@@ -169,35 +169,40 @@ class QingLongApi(private val settings: QingLongSettings) {
         if (json.optInt("code") != 200) {
             throw IllegalStateException(formatErr("创建环境变量失败", body))
         }
-        val newId = extractCreatedId(json) ?: findByValue(value)?.idString.orEmpty()
+        val newId = extractCreatedId(json) ?: findByValue(value, envName)?.idString.orEmpty()
         newId.toLongOrNull()?.let { tryEnable(it) }
-        return PushResult("已新建青龙 JD_COOKIE", newId)
+        return PushResult("已新建青龙 $envName", newId)
     }
 
-    private fun updateEnv(match: EnvItem, value: String, remarks: String): PushResult {
+    private fun updateEnv(
+        match: EnvItem,
+        value: String,
+        remarks: String,
+        envName: String = "JD_COOKIE"
+    ): PushResult {
         val numId = match.numericId
         if (numId != null) {
             // Modern QL (2.x): PUT { value, name, remarks?, id:number } — NO _id
             val payload = JSONObject()
                 .put("value", value)
-                .put("name", "JD_COOKIE")
+                .put("name", envName)
                 .put("remarks", remarks)
                 .put("id", numId)
             val body = http("PUT", URL("${base()}/open/envs"), payload.toString())
             val json = JSONObject(body)
             if (json.optInt("code") == 200) {
                 tryEnable(numId)
-                return PushResult("已更新并启用青龙 JD_COOKIE", numId.toString())
+                return PushResult("已更新并启用青龙 $envName", numId.toString())
             }
             // Fallback: try string id (very old) then recreate path message
-            val alt = tryPutWithIdKey(value, remarks, numId, useUnderscore = false)
-                ?: tryPutWithIdKey(value, remarks, match.idString, useUnderscore = true)
+            val alt = tryPutWithIdKey(value, remarks, numId, useUnderscore = false, envName = envName)
+                ?: tryPutWithIdKey(value, remarks, match.idString, useUnderscore = true, envName = envName)
             if (alt != null) return alt
             throw IllegalStateException(formatErr("更新环境变量失败", body))
         }
 
         // No numeric id — try _id string (legacy Mongo)
-        val alt = tryPutWithIdKey(value, remarks, match.idString, useUnderscore = true)
+        val alt = tryPutWithIdKey(value, remarks, match.idString, useUnderscore = true, envName = envName)
         if (alt != null) return alt
 
         // Last resort: create new (may duplicate); prefer fail clearly
@@ -210,12 +215,13 @@ class QingLongApi(private val settings: QingLongSettings) {
         value: String,
         remarks: String,
         idVal: Any,
-        useUnderscore: Boolean
+        useUnderscore: Boolean,
+        envName: String = "JD_COOKIE"
     ): PushResult? {
         return try {
             val payload = JSONObject()
                 .put("value", value)
-                .put("name", "JD_COOKIE")
+                .put("name", envName)
                 .put("remarks", remarks)
             if (useUnderscore) {
                 payload.put("_id", idVal.toString())
@@ -233,7 +239,7 @@ class QingLongApi(private val settings: QingLongSettings) {
             if (json.optInt("code") != 200) return null
             val idStr = idVal.toString()
             idStr.toLongOrNull()?.let { tryEnable(it) }
-            PushResult("已更新青龙 JD_COOKIE（兼容模式）", idStr)
+            PushResult("已更新青龙 $envName（兼容模式）", idStr)
         } catch (_: Exception) {
             null
         }
@@ -323,8 +329,44 @@ class QingLongApi(private val settings: QingLongSettings) {
         return s
     }
 
-    private fun findByValue(value: String): EnvItem? =
-        listEnvs("JD_COOKIE").find { it.value == value || it.value.contains(value.trimEnd(';')) }
+    private fun findByValue(value: String, envName: String = "JD_COOKIE"): EnvItem? =
+        listEnvs(envName).find {
+            it.name == envName && (it.value == value || it.value.contains(value.trimEnd(';')))
+        }
+
+    fun findMeituanEnv(account: MeituanAccount): EnvItem? {
+        val envs = listEnvs(MeituanAccountStore.ENV_NAME)
+        if (account.qlEnvId.isNotBlank()) {
+            envs.find { it.idString == account.qlEnvId && it.name == MeituanAccountStore.ENV_NAME }
+                ?.let { return it }
+        }
+        val token = account.token
+        return envs.find { env ->
+            env.name == MeituanAccountStore.ENV_NAME && (
+                env.value == token ||
+                    env.value.trim() == token ||
+                    (account.nickname.isNotBlank() && env.remarks == account.nickname) ||
+                    (account.displayName.isNotBlank() && env.remarks == account.displayName)
+                )
+        }
+    }
+
+    /**
+     * Upsert meituanCookie. Value must be raw token only (e.g. Ag…), NOT token=…
+     * One env per Meituan account, mirroring JD_COOKIE pattern.
+     */
+    fun pushOrUpdateMeituan(account: MeituanAccount): PushResult {
+        ensureToken()
+        val envName = MeituanAccountStore.ENV_NAME
+        val match = findMeituanEnv(account)
+        val remarks = account.displayName.ifBlank { account.tokenPreview }
+        val value = MeituanAccountStore.normalizeToken(account.token)
+        return if (match != null) {
+            updateEnv(match, value, remarks, envName)
+        } else {
+            createEnv(value, remarks, envName)
+        }
+    }
 
     private fun extractArray(data: Any?): JSONArray = when (data) {
         is JSONArray -> data

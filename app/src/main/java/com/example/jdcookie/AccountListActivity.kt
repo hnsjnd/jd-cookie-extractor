@@ -20,6 +20,7 @@ import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import com.google.android.material.progressindicator.LinearProgressIndicator
+import com.google.android.material.tabs.TabLayout
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -27,7 +28,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
-class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
+class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, MeituanAccountAdapter.Listener {
 
     private lateinit var store: AccountStore
     private lateinit var beanCache: BeanStatsCache
@@ -40,7 +41,17 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
     private lateinit var tvBeanSummaryTime: TextView
     private lateinit var tvRefreshProgress: TextView
     private lateinit var refreshProgress: LinearProgressIndicator
+    private lateinit var tabZones: TabLayout
+    private lateinit var zoneJd: View
+    private lateinit var zoneMeituan: View
+    private lateinit var zoneMicrosoft: View
+    private lateinit var mtStore: MeituanAccountStore
+    private lateinit var mtAdapter: MeituanAccountAdapter
+    private lateinit var rvMeituan: RecyclerView
+    private lateinit var tvEmptyMt: TextView
+    private lateinit var fabAdd: ExtendedFloatingActionButton
 
+    private var currentZone = ZONE_JD
     private var beanById: MutableMap<String, JdBeanApi.AccountBeanStats> = linkedMapOf()
     private var beanFetchedAt: Long = 0L
     private var refreshing = false
@@ -51,11 +62,22 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
         ActivityResultContracts.StartActivityForResult()
     ) { refreshList() }
 
+    private val mtLoginLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { refreshMeituanList() }
+
+    companion object {
+        private const val ZONE_JD = 0
+        private const val ZONE_MEITUAN = 1
+        private const val ZONE_MICROSOFT = 2
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_account_list)
 
         store = AccountStore(this)
+        mtStore = MeituanAccountStore(this)
         beanCache = BeanStatsCache(this)
         qlConfig = QingLongConfig(this)
         QingLongPanel.ensureDefaultUrl(qlConfig)
@@ -72,7 +94,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
                     true
                 }
                 R.id.action_push_all -> {
-                    pushAll()
+                    if (currentZone == ZONE_MEITUAN) pushAllMeituan() else pushAll()
                     true
                 }
                 R.id.action_tasks -> {
@@ -115,11 +137,29 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
 
         swipeRefresh.setOnRefreshListener { refreshAllAccounts() }
 
-        findViewById<ExtendedFloatingActionButton>(R.id.fabAdd).setOnClickListener {
-            QingLongPanel.ensureReady(this) {
-                loginLauncher.launch(Intent(this, LoginActivity::class.java))
+        fabAdd = findViewById(R.id.fabAdd)
+        fabAdd.setOnClickListener { onFabClick() }
+
+        zoneJd = findViewById(R.id.zoneJd)
+        zoneMeituan = findViewById(R.id.zoneMeituan)
+        zoneMicrosoft = findViewById(R.id.zoneMicrosoft)
+        rvMeituan = findViewById(R.id.rvMeituan)
+        tvEmptyMt = findViewById(R.id.tvEmptyMt)
+        mtAdapter = MeituanAccountAdapter(mutableListOf(), this)
+        rvMeituan.layoutManager = LinearLayoutManager(this)
+        rvMeituan.adapter = mtAdapter
+
+        tabZones = findViewById(R.id.tabZones)
+        tabZones.addTab(tabZones.newTab().setText(R.string.zone_jd))
+        tabZones.addTab(tabZones.newTab().setText(R.string.zone_meituan))
+        tabZones.addTab(tabZones.newTab().setText(R.string.zone_microsoft))
+        tabZones.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                showZone(tab?.position ?: ZONE_JD)
             }
-        }
+            override fun onTabUnselected(tab: TabLayout.Tab?) {}
+            override fun onTabReselected(tab: TabLayout.Tab?) {}
+        })
 
         if (!QingLongPanel.isReady(this)) {
             Toast.makeText(this, R.string.firstrun_need_ql, Toast.LENGTH_LONG).show()
@@ -128,11 +168,58 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
 
         loadCachedBeans()
         refreshList()
+        refreshMeituanList()
+        showZone(ZONE_JD)
+    }
+
+    private fun onFabClick() {
+        when (currentZone) {
+            ZONE_JD -> QingLongPanel.ensureReady(this) {
+                loginLauncher.launch(Intent(this, LoginActivity::class.java))
+            }
+            ZONE_MEITUAN -> showAddMeituanChooser()
+            else -> { /* microsoft: no fab action */ }
+        }
+    }
+
+    private fun showZone(zone: Int) {
+        currentZone = zone
+        zoneJd.visibility = if (zone == ZONE_JD) View.VISIBLE else View.GONE
+        zoneMeituan.visibility = if (zone == ZONE_MEITUAN) View.VISIBLE else View.GONE
+        zoneMicrosoft.visibility = if (zone == ZONE_MICROSOFT) View.VISIBLE else View.GONE
+        fabAdd.visibility = if (zone == ZONE_MICROSOFT) View.GONE else View.VISIBLE
+        when (zone) {
+            ZONE_JD -> {
+                fabAdd.text = getString(R.string.add_and_push)
+                findViewById<MaterialToolbar>(R.id.toolbar).title = getString(R.string.accounts_title)
+            }
+            ZONE_MEITUAN -> {
+                fabAdd.text = getString(R.string.add_meituan)
+                findViewById<MaterialToolbar>(R.id.toolbar).title = getString(R.string.zone_meituan_title)
+                refreshMeituanList()
+            }
+            ZONE_MICROSOFT -> {
+                findViewById<MaterialToolbar>(R.id.toolbar).title = getString(R.string.zone_microsoft)
+            }
+        }
+        updateMenuForZone()
+    }
+
+    private fun updateMenuForZone() {
+        val menu = findViewById<MaterialToolbar>(R.id.toolbar).menu
+        val jdOnly = currentZone == ZONE_JD
+        val mtOnly = currentZone == ZONE_MEITUAN
+        menu.findItem(R.id.action_refresh_beans)?.isVisible = jdOnly
+        menu.findItem(R.id.action_push_all)?.isVisible = jdOnly || mtOnly
+        menu.findItem(R.id.action_tasks)?.isVisible = jdOnly
+        menu.findItem(R.id.action_check_all)?.isVisible = jdOnly
+        menu.findItem(R.id.action_copy_all)?.isVisible = jdOnly
     }
 
     override fun onResume() {
         super.onResume()
         refreshList()
+        if (currentZone == ZONE_MEITUAN) refreshMeituanList()
     }
 
     private fun loadCachedBeans() {
@@ -588,9 +675,208 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener {
             .show()
     }
 
-    private fun copy(text: String) {
+    private fun copy(text: String, label: String = "JD_COOKIE") {
         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        cm.setPrimaryClip(ClipData.newPlainText("JD_COOKIE", text))
+        cm.setPrimaryClip(ClipData.newPlainText(label, text))
         Toast.makeText(this, R.string.toast_copied, Toast.LENGTH_SHORT).show()
     }
+
+    // region Meituan
+
+    private fun refreshMeituanList() {
+        val list = mtStore.loadAll()
+        mtAdapter.replaceAll(list)
+        tvEmptyMt.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+        rvMeituan.visibility = if (list.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    private fun showAddMeituanChooser() {
+        val labels = arrayOf(
+            getString(R.string.meituan_add_webview),
+            getString(R.string.meituan_add_paste)
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.add_meituan)
+            .setItems(labels) { _, which ->
+                when (which) {
+                    0 -> QingLongPanel.ensureReady(this) {
+                        mtLoginLauncher.launch(Intent(this, MeituanLoginActivity::class.java))
+                    }
+                    1 -> showPasteMeituanDialog()
+                }
+            }
+            .show()
+    }
+
+    private fun showPasteMeituanDialog() {
+        val view = LayoutInflater.from(this).inflate(R.layout.dialog_paste_meituan, null)
+        val etNick = view.findViewById<EditText>(R.id.etMtNickname)
+        val etToken = view.findViewById<EditText>(R.id.etMtToken)
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.meituan_paste_title)
+            .setView(view)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.save) { _, _ ->
+                val token = MeituanAccountStore.normalizeToken(etToken.text.toString())
+                if (token.isBlank()) {
+                    Toast.makeText(this, R.string.meituan_token_empty, Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                val nick = etNick.text.toString().trim()
+                val account = mtStore.upsertByToken(token, nick.ifBlank { null })
+                refreshMeituanList()
+                QingLongPanel.ensureReady(this) {
+                    pushMeituanAccount(account)
+                }
+            }
+            .show()
+    }
+
+    override fun onCopy(account: MeituanAccount) = copy(account.token, "meituanCookie")
+
+    override fun onPushQl(account: MeituanAccount) {
+        QingLongPanel.ensureReady(this) { pushMeituanAccount(account) }
+    }
+
+    override fun onRename(account: MeituanAccount) {
+        val input = EditText(this).apply {
+            setText(account.nickname.ifBlank { account.displayName })
+            setSelection(text.length)
+            hint = getString(R.string.rename_hint)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.rename)
+            .setView(input)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.confirm) { _, _ ->
+                mtStore.rename(account.id, input.text.toString())
+                refreshMeituanList()
+            }
+            .show()
+    }
+
+    override fun onDelete(account: MeituanAccount) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.confirm_delete_ql_title)
+            .setMessage(getString(R.string.confirm_delete_mt_ql_msg, account.displayName))
+            .setNeutralButton(R.string.delete_local_only) { _, _ ->
+                mtStore.delete(account.id)
+                refreshMeituanList()
+            }
+            .setNegativeButton(R.string.delete_and_disable_ql) { _, _ ->
+                deleteMeituanLocalAndQl(account, remove = false)
+            }
+            .setPositiveButton(R.string.delete_and_remove_ql) { _, _ ->
+                deleteMeituanLocalAndQl(account, remove = true)
+            }
+            .show()
+    }
+
+    private fun deleteMeituanLocalAndQl(account: MeituanAccount, remove: Boolean) {
+        mtStore.delete(account.id)
+        refreshMeituanList()
+        if (!QingLongPanel.isReady(this)) {
+            Toast.makeText(this, R.string.ql_not_configured, Toast.LENGTH_SHORT).show()
+            return
+        }
+        thread {
+            try {
+                val api = QingLongApi(qlConfig.load())
+                val envId = account.qlEnvId.ifBlank {
+                    api.findMeituanEnv(account)?.idString.orEmpty()
+                }
+                if (envId.isBlank()) {
+                    runOnUiThread {
+                        Toast.makeText(this, "本机已删除；青龙上未找到对应变量", Toast.LENGTH_LONG).show()
+                    }
+                    return@thread
+                }
+                val msg = if (remove) api.deleteEnv(envId) else api.disableEnv(envId)
+                runOnUiThread { Toast.makeText(this, msg, Toast.LENGTH_SHORT).show() }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this, "本机已删除；青龙操作失败: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun pushMeituanAccount(account: MeituanAccount) {
+        account.pushStatus = PushStatus.PUSHING
+        mtStore.update(account)
+        refreshMeituanList()
+        thread {
+            try {
+                val result = QingLongApi(qlConfig.load()).pushOrUpdateMeituan(account)
+                account.qlEnvId = result.envId
+                account.pushStatus = PushStatus.SYNCED
+                account.lastPushedAt = System.currentTimeMillis()
+                account.lastPushMessage = result.message
+                mtStore.update(account)
+                runOnUiThread {
+                    refreshMeituanList()
+                    Toast.makeText(this, result.message, Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                account.pushStatus = PushStatus.FAILED
+                account.lastPushMessage = e.message ?: "失败"
+                mtStore.update(account)
+                runOnUiThread {
+                    refreshMeituanList()
+                    Toast.makeText(this, "推送失败: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun pushAllMeituan() {
+        QingLongPanel.ensureReady(this) {
+            val accounts = mtStore.loadAll()
+            if (accounts.isEmpty()) {
+                Toast.makeText(this, R.string.no_accounts, Toast.LENGTH_SHORT).show()
+                return@ensureReady
+            }
+            thread {
+                var ok = 0
+                var fail = 0
+                val api = QingLongApi(qlConfig.load())
+                accounts.forEachIndexed { index, account ->
+                    runOnUiThread {
+                        Toast.makeText(
+                            this,
+                            getString(R.string.push_all_progress, index + 1, accounts.size),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    try {
+                        account.pushStatus = PushStatus.PUSHING
+                        mtStore.update(account)
+                        val result = api.pushOrUpdateMeituan(account)
+                        account.qlEnvId = result.envId
+                        account.pushStatus = PushStatus.SYNCED
+                        account.lastPushedAt = System.currentTimeMillis()
+                        account.lastPushMessage = result.message
+                        mtStore.update(account)
+                        ok++
+                    } catch (e: Exception) {
+                        account.pushStatus = PushStatus.FAILED
+                        account.lastPushMessage = e.message ?: "失败"
+                        mtStore.update(account)
+                        fail++
+                    }
+                    runOnUiThread { refreshMeituanList() }
+                }
+                runOnUiThread {
+                    refreshMeituanList()
+                    Toast.makeText(
+                        this,
+                        getString(R.string.push_all_done, ok, fail),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+
+    // endregion
 }
