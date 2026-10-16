@@ -21,7 +21,11 @@ import kotlin.concurrent.thread
 
 /**
  * Quark WebView login → intercept growth/reward (or any drive-m URL with kps/sign/vcode)
- * → COOKIE_QUARK → auto-push. Native-app signed params often missing in WebView; paste fallback.
+ * → COOKIE_QUARK → auto-push.
+ *
+ * H5 CAS SMS uses Aliyun Captcha V2 bound to browser session cookies (_UP_F7E_8D_ etc.).
+ * Spoofing Quark App UA or hooking XHR during login commonly yields「短信验证码无效或过期」.
+ * Native kps/sign/vcode often still missing; paste (MuMu/抓包) remains the reliable path.
  */
 class QuarkLoginActivity : AppCompatActivity() {
 
@@ -72,9 +76,15 @@ class QuarkLoginActivity : AppCompatActivity() {
          */
         private const val GROWTH_INFO_HINT =
             "https://drive-m.quark.cn/1/clouddrive/capacity/growth/info?pr=ucpro&fr=android"
+        /**
+         * Must NOT contain "Quark/" — common_ua.js treats quark/ as native Quark App
+         * (isQuark()), which breaks Aliyun Captcha V2 + SMS session in plain WebView.
+         * Also avoid WebView-style "Version/4.0" + fake Quark version mismatch.
+         * Same Chrome Mobile UA as JD LoginActivity.
+         */
         private const val UA =
             "Mozilla/5.0 (Linux; Android 14; SM-S9280) AppleWebKit/537.36 (KHTML, like Gecko) " +
-                "Version/4.0 Chrome/120.0.0.0 Mobile Safari/537.36 Quark/7.9.0.700"
+                "Chrome/120.0.0.0 Mobile Safari/537.36"
 
         private const val BRIDGE = "QuarkBridge"
     }
@@ -245,6 +255,11 @@ class QuarkLoginActivity : AppCompatActivity() {
 
     private fun injectHooks() {
         if (extractStarted) return
+        // Do NOT hook XHR/fetch on CAS login — Aliyun Captcha V2 + SMS rely on them.
+        // Only instrument after a real pan/drive session cookie appears.
+        if (!loginLikely) return
+        val url = webView.url.orEmpty()
+        if (url.contains("uop.quark.cn/cas", true) || url.contains("custom/login", true)) return
         val js = """
             (function(){
               try {

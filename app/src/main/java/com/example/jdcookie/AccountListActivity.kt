@@ -1173,18 +1173,19 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
     }
 
     private fun showAddQuarkChooser() {
+        // Paste first: H5 WebView SMS often fails (Aliyun captcha / risk control).
         val labels = arrayOf(
-            getString(R.string.quark_add_webview),
-            getString(R.string.quark_add_paste)
+            getString(R.string.quark_add_paste),
+            getString(R.string.quark_add_webview)
         )
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.add_quark)
             .setItems(labels) { _, which ->
                 when (which) {
-                    0 -> QingLongPanel.ensureReady(this) {
+                    0 -> showPasteQuarkDialog()
+                    1 -> QingLongPanel.ensureReady(this) {
                         quarkLoginLauncher.launch(Intent(this, QuarkLoginActivity::class.java))
                     }
-                    1 -> showPasteQuarkDialog()
                 }
             }
             .show()

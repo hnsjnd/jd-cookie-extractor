@@ -197,17 +197,17 @@
     <string name="zone_quark_title">夸克账号</string>
     <string name="empty_quark">还没有夸克账号\n点右下角添加：WebView 登录或粘贴 COOKIE_QUARK，保存后推送到青龙 COOKIE_QUARK</string>
     <string name="add_quark">添加夸克</string>
-    <string name="quark_add_webview">登录获取</string>
-    <string name="quark_add_paste">粘贴</string>
+    <string name="quark_add_webview">尝试 WebView 登录（可能短信失败）</string>
+    <string name="quark_add_paste">粘贴 COOKIE_QUARK（推荐）</string>
     <string name="quark_login_title">夸克登录 · 提取 COOKIE_QUARK</string>
-    <string name="quark_step_wait_login">请在下方用手机号验证码登录夸克（H5，非 App 下载页）；登录后将探测 growth 并拦截含 kps/sign/vcode 的请求。若无法提取请返回用「粘贴」。</string>
+    <string name="quark_step_wait_login">请用手机号+短信验证码登录（官方 H5）。若提示「短信验证码无效或过期」，请返回用「粘贴」：MuMu 等模拟器安装夸克 App + 系统证书抓包，复制含 kps/sign/vcode 的完整 url=。</string>
     <string name="quark_step_probe_growth">已登录，正在探测 growth 接口…</string>
     <string name="quark_step_need_login">请先完成登录</string>
     <string name="quark_guest_need_login">未检测到有效登录会话（guest/401）。请先用手机号验证码完成登录后再提取。</string>
     <string name="quark_step_pushing">推送中…正在更新 COOKIE_QUARK</string>
     <string name="quark_paste_title">粘贴夸克 Cookie</string>
     <string name="quark_cookie_hint">COOKIE_QUARK（user=…; url=… 或 user=; kps=; sign=; vcode=）</string>
-    <string name="quark_cookie_tip">推送到青龙环境变量名：COOKIE_QUARK。格式示例：user=备注; url=https://drive-m.quark.cn/… 或 user=; kps=; sign=; vcode=。一账号一变量，备注优先用昵称。</string>
+    <string name="quark_cookie_tip">推荐：MuMu/雷电等模拟器装夸克 App，用 HttpCanary/Charles（系统证书）抓 drive-m.quark.cn 含 kps/sign/vcode 的完整 URL，粘贴为 user=备注; url=整段URL。亦可手填 user=; kps=; sign=; vcode=。推送变量名 COOKIE_QUARK，一账号一变量。</string>
     <string name="quark_cookie_empty">请填写有效的夸克 Cookie（需含 url= 或 kps=/sign=/vcode=）</string>
     <string name="confirm_delete_quark_ql_msg">删除本机「%1$s」？是否同时处理青龙上的 COOKIE_QUARK？</string>
 

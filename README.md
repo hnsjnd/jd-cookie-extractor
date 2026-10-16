@@ -4,13 +4,13 @@
 
 > Cookie / token / 服务密码默认只保存在本机。请勿泄露给他人。
 
-## 功能（v1.10.3）
+## 功能（v1.10.4）
 
 - **分区 UI**：顶部 Tab「京豆 / 美团 / 饿了么 / 夸克 / 电信 / 微软」
   - **京豆**：原有京东多账号、京豆统计、养号模式、失效提醒、推送 `JD_COOKIE`
   - **美团**：多账号列表；WebView 登录提取 `token` 或手动粘贴；推送青龙 **`meituanCookie`**（纯 token，一账号一变量）
   - **饿了么**：多账号列表；**WebView 登录获取**或**粘贴 Cookie**；推送青龙 **`elmck`**（完整 Cookie 字符串，一账号一变量；适配 Shuying-exquisite/elm 吃货豆.py）
-  - **夸克**：多账号列表；**WebView 登录获取**或**粘贴** `COOKIE_QUARK`；推送青龙 **`COOKIE_QUARK`**（一账号一变量，备注=昵称）
+  - **夸克**：多账号列表；**优先粘贴** `COOKIE_QUARK`（推荐），WebView 登录为备选；推送青龙 **`COOKIE_QUARK`**（一账号一变量，备注=昵称）
   - **电信**：多账号列表；**粘贴** `手机号#服务密码`；推送青龙 **`chinaTelecomAccount`**（一账号一变量，备注=手机号）。会明文保存服务密码到本机与青龙，请谨慎。
   - **微软**：占位「即将支持」
 - Cookie 失效提醒、养号模式、京豆卡片、一键更新等（见往期版本）
@@ -22,7 +22,7 @@
 3. **京豆** Tab：添加账号并登录；点「更新」刷新 CK / 京豆 / 推送状态
 4. **美团** Tab：添加 → WebView 登录或粘贴 token；推送到 `meituanCookie`
 5. **饿了么** Tab：添加 →「登录获取」或「粘贴」；推送到 `elmck`
-6. **夸克** Tab：添加 →「登录获取」或「粘贴」；推送到 `COOKIE_QUARK`
+6. **夸克** Tab：添加 →「粘贴 COOKIE_QUARK（推荐）」或「尝试 WebView 登录」；推送到 `COOKIE_QUARK`
 7. **电信** Tab：添加 → 粘贴 `手机号#服务密码`；推送到 `chinaTelecomAccount`
 
 ## 夸克 Cookie 格式
@@ -35,18 +35,32 @@
 
 一账号一变量；备注优先用昵称。
 
-### WebView 登录
+### 推荐：粘贴（MuMu / 抓包）
 
-默认打开夸克官方 H5 手机登录（`uop.quark.cn/cas/custom/login`，client_id=503），登录成功后回跳 `pan.quark.cn/account/info` 种会话 Cookie；再探测 `drive-m.quark.cn` 的 growth/info，并拦截含 `kps`/`sign`/`vcode` 的请求（含 `act/growth/reward`）。不再默认打开 `pan.quark.cn/` 首页（移动端会跳转到夸克 App 下载页）。提取成功后自动推送青龙。
+WebView 内 H5 短信登录常因阿里云验证码风控失败（报「短信验证码无效或过期」），**优先用粘贴**：
 
-**v1.10.3：** 仅在存在真实会话 Cookie（`__puus`/`__pus`）时视为已登录；若 account/info 或 growth 返回 guest/401，提示「请先完成登录」并回到登录页，避免未登录误探测。
+1. MuMu / 雷电等模拟器安装官方夸克 App，并安装 HttpCanary / Charles 等抓包工具的**系统证书**。
+2. 在夸克 App 内登录后，触发网盘相关请求（签到 / 成长 / 容量等）。
+3. 在抓包里找到 `drive-m.quark.cn` 且 URL 含 `kps`/`sign`/`vcode` 的请求（常见 `act/growth/reward` 或 `capacity/growth/info`）。
+4. **整段复制 URL**，在本 App「夸克」Tab → 添加 →「粘贴 COOKIE_QUARK」填入：`user=备注; url=整段URL`。
+
+### WebView 登录（备选）
+
+默认打开夸克官方 H5 手机登录（`uop.quark.cn/cas/custom/login`，client_id=503），登录成功后回跳 `pan.quark.cn/account/info` 种会话 Cookie；再探测 `drive-m.quark.cn` 的 growth/info，并拦截含 `kps`/`sign`/`vcode` 的请求。不再默认打开 `pan.quark.cn/` 首页（移动端会跳转到夸克 App 下载页）。
+
+**v1.10.4：**
+- WebView UA 改为普通 Chrome Mobile（**去掉伪造的 `Quark/x.y`**）。站点 `common_ua.js` 会把带 `quark/` 的 UA 当成原生夸克 App（`isQuark()`），导致阿里云 Captcha V2 / 短信会话与 WebView 能力不匹配，表现为「短信验证码无效或过期」。
+- 登录页期间不再 hook XHR/fetch（避免干扰验证码）；仅在出现真实会话 Cookie 后再注入拦截脚本。
+- 添加账号对话框把「粘贴」放在第一项。
+
+**v1.10.3：** 仅在存在真实会话 Cookie（`__puus`/`__pus`）时视为已登录；guest/401 时提示并回到登录页。
 
 **URL 注意（抓包 / 粘贴时）：**
 
 - 新版 `…/act/growth/reward?…` 参数很多（`device_model`、`mt`、`ut`、`ds`、`xs`、`kps`、`sign`、`vcode` 等），请**整段复制**，不要拆改。
 - 参数里可能有字面量 `+`、`=`、`%xx`，不要手动 URL 编解码或把 `+` 当成空格。
 - 旧接口 `…/capacity/growth/info` 只要带齐 `kps`/`sign`/`vcode` 仍可用。
-- WebView **不一定**能拿到 App 同款签名参数（站点风控 / 仅原生签发）；失败时请用「粘贴」备用（模拟器+系统证书抓包亦可）。
+- WebView **仍不一定**能拿到 App 同款签名参数；短信若仍失败请用粘贴。
 
 ## 电信账号格式
 
@@ -76,5 +90,5 @@ WebView 登录或粘贴浏览器 Cookie 头时会自动精简并保留上述字�
 
 - 仅供个人使用
 - minSdk 24 / targetSdk 34
-- 美团 / 饿了么 / 夸克 WebView 登录受站点风控影响，失败时请用粘贴备用
+- 美团 / 饿了么 / 夸克 WebView 登录受站点风控影响；夸克短信登录尤甚，优先粘贴（MuMu+抓包）
 - 切勿在日志或截图中暴露 Cookie / token / 服务密码
