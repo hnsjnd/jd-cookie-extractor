@@ -408,6 +408,86 @@ class QingLongApi(private val settings: QingLongSettings) {
         }
     }
 
+
+    fun findQuarkEnv(account: QuarkAccount): EnvItem? {
+        val envs = listEnvs(QuarkAccountStore.ENV_NAME)
+        if (account.qlEnvId.isNotBlank()) {
+            envs.find { it.idString == account.qlEnvId && it.name == QuarkAccountStore.ENV_NAME }
+                ?.let { return it }
+        }
+        val cookie = account.cookie
+        val user = account.userField
+        return envs.find { env ->
+            env.name == QuarkAccountStore.ENV_NAME && (
+                env.value == cookie ||
+                    env.value.trim() == cookie.trim() ||
+                    (user.isNotBlank() && (
+                        env.value.contains("user=$user") ||
+                            env.remarks == user
+                        )) ||
+                    (account.nickname.isNotBlank() && env.remarks == account.nickname) ||
+                    (account.displayName.isNotBlank() && env.remarks == account.displayName)
+                )
+        }
+    }
+
+    /**
+     * Upsert COOKIE_QUARK. One env per Quark account.
+     * Value: user=…; url=… or user=; kps=; sign=; vcode=
+     */
+    fun pushOrUpdateQuark(account: QuarkAccount): PushResult {
+        ensureToken()
+        val envName = QuarkAccountStore.ENV_NAME
+        val match = findQuarkEnv(account)
+        val remarks = account.displayName.ifBlank { account.cookiePreview }
+        val value = QuarkAccountStore.normalizeCookie(account.cookie)
+        return if (match != null) {
+            updateEnv(match, value, remarks, envName)
+        } else {
+            createEnv(value, remarks, envName)
+        }
+    }
+
+    fun findTelecomEnv(account: TelecomAccount): EnvItem? {
+        val envs = listEnvs(TelecomAccountStore.ENV_NAME)
+        if (account.qlEnvId.isNotBlank()) {
+            envs.find { it.idString == account.qlEnvId && it.name == TelecomAccountStore.ENV_NAME }
+                ?.let { return it }
+        }
+        val phone = account.phone
+        val cred = account.credential
+        return envs.find { env ->
+            env.name == TelecomAccountStore.ENV_NAME && (
+                env.value == cred ||
+                    env.value.trim() == cred.trim() ||
+                    (phone.isNotBlank() && (
+                        env.value.startsWith("$phone#") ||
+                            env.value.contains("$phone#") ||
+                            env.remarks == phone
+                        )) ||
+                    (account.nickname.isNotBlank() && env.remarks == account.nickname) ||
+                    (account.displayName.isNotBlank() && env.remarks == account.displayName)
+                )
+        }
+    }
+
+    /**
+     * Upsert chinaTelecomAccount. Value: 手机号#服务密码.
+     * One env per account; remarks prefer phone.
+     */
+    fun pushOrUpdateTelecom(account: TelecomAccount): PushResult {
+        ensureToken()
+        val envName = TelecomAccountStore.ENV_NAME
+        val match = findTelecomEnv(account)
+        val remarks = account.phone.ifBlank { account.displayName }
+        val value = TelecomAccountStore.normalizeCredential(account.credential)
+        return if (match != null) {
+            updateEnv(match, value, remarks, envName)
+        } else {
+            createEnv(value, remarks, envName)
+        }
+    }
+
     private fun extractArray(data: Any?): JSONArray = when (data) {
         is JSONArray -> data
         is JSONObject -> data.optJSONArray("data")

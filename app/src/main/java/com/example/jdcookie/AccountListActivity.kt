@@ -28,7 +28,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
-class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, MeituanAccountAdapter.Listener, ElmAccountAdapter.Listener {
+class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, MeituanAccountAdapter.Listener, ElmAccountAdapter.Listener, QuarkAccountAdapter.Listener, TelecomAccountAdapter.Listener {
 
     private lateinit var store: AccountStore
     private lateinit var beanCache: BeanStatsCache
@@ -54,6 +54,16 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
     private lateinit var rvElm: RecyclerView
     private lateinit var tvEmptyElm: TextView
     private lateinit var zoneElm: View
+    private lateinit var quarkStore: QuarkAccountStore
+    private lateinit var quarkAdapter: QuarkAccountAdapter
+    private lateinit var rvQuark: RecyclerView
+    private lateinit var tvEmptyQuark: TextView
+    private lateinit var zoneQuark: View
+    private lateinit var telecomStore: TelecomAccountStore
+    private lateinit var telecomAdapter: TelecomAccountAdapter
+    private lateinit var rvTelecom: RecyclerView
+    private lateinit var tvEmptyTelecom: TextView
+    private lateinit var zoneTelecom: View
     private lateinit var fabAdd: ExtendedFloatingActionButton
 
     private var currentZone = ZONE_JD
@@ -79,7 +89,9 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
         private const val ZONE_JD = 0
         private const val ZONE_MEITUAN = 1
         private const val ZONE_ELM = 2
-        private const val ZONE_MICROSOFT = 3
+        private const val ZONE_QUARK = 3
+        private const val ZONE_TELECOM = 4
+        private const val ZONE_MICROSOFT = 5
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,6 +101,8 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
         store = AccountStore(this)
         mtStore = MeituanAccountStore(this)
         elmStore = ElmAccountStore(this)
+        quarkStore = QuarkAccountStore(this)
+        telecomStore = TelecomAccountStore(this)
         beanCache = BeanStatsCache(this)
         qlConfig = QingLongConfig(this)
         QingLongPanel.ensureDefaultUrl(qlConfig)
@@ -108,6 +122,8 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
                     when (currentZone) {
                         ZONE_MEITUAN -> pushAllMeituan()
                         ZONE_ELM -> pushAllElm()
+                        ZONE_QUARK -> pushAllQuark()
+                        ZONE_TELECOM -> pushAllTelecom()
                         else -> pushAll()
                     }
                     true
@@ -158,6 +174,8 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
         zoneJd = findViewById(R.id.zoneJd)
         zoneMeituan = findViewById(R.id.zoneMeituan)
         zoneElm = findViewById(R.id.zoneElm)
+        zoneQuark = findViewById(R.id.zoneQuark)
+        zoneTelecom = findViewById(R.id.zoneTelecom)
         zoneMicrosoft = findViewById(R.id.zoneMicrosoft)
         rvMeituan = findViewById(R.id.rvMeituan)
         tvEmptyMt = findViewById(R.id.tvEmptyMt)
@@ -169,11 +187,23 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
         elmAdapter = ElmAccountAdapter(mutableListOf(), this)
         rvElm.layoutManager = LinearLayoutManager(this)
         rvElm.adapter = elmAdapter
+        rvQuark = findViewById(R.id.rvQuark)
+        tvEmptyQuark = findViewById(R.id.tvEmptyQuark)
+        quarkAdapter = QuarkAccountAdapter(mutableListOf(), this)
+        rvQuark.layoutManager = LinearLayoutManager(this)
+        rvQuark.adapter = quarkAdapter
+        rvTelecom = findViewById(R.id.rvTelecom)
+        tvEmptyTelecom = findViewById(R.id.tvEmptyTelecom)
+        telecomAdapter = TelecomAccountAdapter(mutableListOf(), this)
+        rvTelecom.layoutManager = LinearLayoutManager(this)
+        rvTelecom.adapter = telecomAdapter
 
         tabZones = findViewById(R.id.tabZones)
         tabZones.addTab(tabZones.newTab().setText(R.string.zone_jd))
         tabZones.addTab(tabZones.newTab().setText(R.string.zone_meituan))
         tabZones.addTab(tabZones.newTab().setText(R.string.zone_elm))
+        tabZones.addTab(tabZones.newTab().setText(R.string.zone_quark))
+        tabZones.addTab(tabZones.newTab().setText(R.string.zone_telecom))
         tabZones.addTab(tabZones.newTab().setText(R.string.zone_microsoft))
         tabZones.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
@@ -192,6 +222,8 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
         refreshList()
         refreshMeituanList()
         refreshElmList()
+        refreshQuarkList()
+        refreshTelecomList()
         showZone(ZONE_JD)
     }
 
@@ -202,6 +234,8 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
             }
             ZONE_MEITUAN -> showAddMeituanChooser()
             ZONE_ELM -> showAddElmChooser()
+            ZONE_QUARK -> showPasteQuarkDialog()
+            ZONE_TELECOM -> showPasteTelecomDialog()
             else -> { /* microsoft: no fab action */ }
         }
     }
@@ -211,6 +245,8 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
         zoneJd.visibility = if (zone == ZONE_JD) View.VISIBLE else View.GONE
         zoneMeituan.visibility = if (zone == ZONE_MEITUAN) View.VISIBLE else View.GONE
         zoneElm.visibility = if (zone == ZONE_ELM) View.VISIBLE else View.GONE
+        zoneQuark.visibility = if (zone == ZONE_QUARK) View.VISIBLE else View.GONE
+        zoneTelecom.visibility = if (zone == ZONE_TELECOM) View.VISIBLE else View.GONE
         zoneMicrosoft.visibility = if (zone == ZONE_MICROSOFT) View.VISIBLE else View.GONE
         fabAdd.visibility = if (zone == ZONE_MICROSOFT) View.GONE else View.VISIBLE
         when (zone) {
@@ -228,6 +264,16 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
                 findViewById<MaterialToolbar>(R.id.toolbar).title = getString(R.string.zone_elm_title)
                 refreshElmList()
             }
+            ZONE_QUARK -> {
+                fabAdd.text = getString(R.string.add_quark)
+                findViewById<MaterialToolbar>(R.id.toolbar).title = getString(R.string.zone_quark_title)
+                refreshQuarkList()
+            }
+            ZONE_TELECOM -> {
+                fabAdd.text = getString(R.string.add_telecom)
+                findViewById<MaterialToolbar>(R.id.toolbar).title = getString(R.string.zone_telecom_title)
+                refreshTelecomList()
+            }
             ZONE_MICROSOFT -> {
                 findViewById<MaterialToolbar>(R.id.toolbar).title = getString(R.string.zone_microsoft)
             }
@@ -238,7 +284,8 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
     private fun updateMenuForZone() {
         val menu = findViewById<MaterialToolbar>(R.id.toolbar).menu
         val jdOnly = currentZone == ZONE_JD
-        val pushZones = currentZone == ZONE_JD || currentZone == ZONE_MEITUAN || currentZone == ZONE_ELM
+        val pushZones = currentZone == ZONE_JD || currentZone == ZONE_MEITUAN || currentZone == ZONE_ELM ||
+            currentZone == ZONE_QUARK || currentZone == ZONE_TELECOM
         menu.findItem(R.id.action_refresh_beans)?.isVisible = jdOnly
         menu.findItem(R.id.action_push_all)?.isVisible = pushZones
         menu.findItem(R.id.action_tasks)?.isVisible = jdOnly
@@ -251,6 +298,8 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
         refreshList()
         if (currentZone == ZONE_MEITUAN) refreshMeituanList()
         if (currentZone == ZONE_ELM) refreshElmList()
+        if (currentZone == ZONE_QUARK) refreshQuarkList()
+        if (currentZone == ZONE_TELECOM) refreshTelecomList()
     }
 
     private fun loadCachedBeans() {
@@ -1098,6 +1147,368 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
                 }
                 runOnUiThread {
                     refreshElmList()
+                    Toast.makeText(
+                        this,
+                        getString(R.string.push_all_done, ok, fail),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+
+    // endregion
+
+    // region Quark (夸克)
+
+    private fun refreshQuarkList() {
+        val list = quarkStore.loadAll()
+        quarkAdapter.replaceAll(list)
+        tvEmptyQuark.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+        rvQuark.visibility = if (list.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    private fun showPasteQuarkDialog() {
+        val view = LayoutInflater.from(this).inflate(R.layout.dialog_paste_quark, null)
+        val etNick = view.findViewById<EditText>(R.id.etQuarkNickname)
+        val etCookie = view.findViewById<EditText>(R.id.etQuarkCookie)
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.quark_paste_title)
+            .setView(view)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.save) { _, _ ->
+                val raw = etCookie.text.toString()
+                if (!QuarkAccountStore.isValidCookie(raw)) {
+                    Toast.makeText(this, R.string.quark_cookie_empty, Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                val nick = etNick.text.toString().trim()
+                val account = quarkStore.upsertByCookie(raw, nick.ifBlank { null })
+                refreshQuarkList()
+                QingLongPanel.ensureReady(this) {
+                    pushQuarkAccount(account)
+                }
+            }
+            .show()
+    }
+
+    override fun onCopy(account: QuarkAccount) = copy(account.cookie, QuarkAccountStore.ENV_NAME)
+
+    override fun onPushQl(account: QuarkAccount) {
+        QingLongPanel.ensureReady(this) { pushQuarkAccount(account) }
+    }
+
+    override fun onRename(account: QuarkAccount) {
+        val input = EditText(this).apply {
+            setText(account.nickname.ifBlank { account.displayName })
+            setSelection(text.length)
+            hint = getString(R.string.rename_hint)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.rename)
+            .setView(input)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.confirm) { _, _ ->
+                quarkStore.rename(account.id, input.text.toString())
+                refreshQuarkList()
+            }
+            .show()
+    }
+
+    override fun onDelete(account: QuarkAccount) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.confirm_delete_ql_title)
+            .setMessage(getString(R.string.confirm_delete_quark_ql_msg, account.displayName))
+            .setNeutralButton(R.string.delete_local_only) { _, _ ->
+                quarkStore.delete(account.id)
+                refreshQuarkList()
+            }
+            .setNegativeButton(R.string.delete_and_disable_ql) { _, _ ->
+                deleteQuarkLocalAndQl(account, remove = false)
+            }
+            .setPositiveButton(R.string.delete_and_remove_ql) { _, _ ->
+                deleteQuarkLocalAndQl(account, remove = true)
+            }
+            .show()
+    }
+
+    private fun deleteQuarkLocalAndQl(account: QuarkAccount, remove: Boolean) {
+        quarkStore.delete(account.id)
+        refreshQuarkList()
+        if (!QingLongPanel.isReady(this)) {
+            Toast.makeText(this, R.string.ql_not_configured, Toast.LENGTH_SHORT).show()
+            return
+        }
+        thread {
+            try {
+                val api = QingLongApi(qlConfig.load())
+                val envId = account.qlEnvId.ifBlank {
+                    api.findQuarkEnv(account)?.idString.orEmpty()
+                }
+                if (envId.isBlank()) {
+                    runOnUiThread {
+                        Toast.makeText(this, "本机已删除；青龙上未找到对应变量", Toast.LENGTH_LONG).show()
+                    }
+                    return@thread
+                }
+                val msg = if (remove) api.deleteEnv(envId) else api.disableEnv(envId)
+                runOnUiThread { Toast.makeText(this, msg, Toast.LENGTH_SHORT).show() }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this, "本机已删除；青龙操作失败: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun pushQuarkAccount(account: QuarkAccount) {
+        account.pushStatus = PushStatus.PUSHING
+        quarkStore.update(account)
+        refreshQuarkList()
+        thread {
+            try {
+                val result = QingLongApi(qlConfig.load()).pushOrUpdateQuark(account)
+                account.qlEnvId = result.envId
+                account.pushStatus = PushStatus.SYNCED
+                account.lastPushedAt = System.currentTimeMillis()
+                account.lastPushMessage = result.message
+                quarkStore.update(account)
+                runOnUiThread {
+                    refreshQuarkList()
+                    Toast.makeText(this, result.message, Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                account.pushStatus = PushStatus.FAILED
+                account.lastPushMessage = e.message ?: "失败"
+                quarkStore.update(account)
+                runOnUiThread {
+                    refreshQuarkList()
+                    Toast.makeText(this, "推送失败: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun pushAllQuark() {
+        QingLongPanel.ensureReady(this) {
+            val accounts = quarkStore.loadAll()
+            if (accounts.isEmpty()) {
+                Toast.makeText(this, R.string.no_accounts, Toast.LENGTH_SHORT).show()
+                return@ensureReady
+            }
+            thread {
+                var ok = 0
+                var fail = 0
+                val api = QingLongApi(qlConfig.load())
+                accounts.forEachIndexed { index, account ->
+                    runOnUiThread {
+                        Toast.makeText(
+                            this,
+                            getString(R.string.push_all_progress, index + 1, accounts.size),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    try {
+                        account.pushStatus = PushStatus.PUSHING
+                        quarkStore.update(account)
+                        val result = api.pushOrUpdateQuark(account)
+                        account.qlEnvId = result.envId
+                        account.pushStatus = PushStatus.SYNCED
+                        account.lastPushedAt = System.currentTimeMillis()
+                        account.lastPushMessage = result.message
+                        quarkStore.update(account)
+                        ok++
+                    } catch (e: Exception) {
+                        account.pushStatus = PushStatus.FAILED
+                        account.lastPushMessage = e.message ?: "失败"
+                        quarkStore.update(account)
+                        fail++
+                    }
+                    runOnUiThread { refreshQuarkList() }
+                }
+                runOnUiThread {
+                    refreshQuarkList()
+                    Toast.makeText(
+                        this,
+                        getString(R.string.push_all_done, ok, fail),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+
+    // endregion
+
+    // region Telecom (电信)
+
+    private fun refreshTelecomList() {
+        val list = telecomStore.loadAll()
+        telecomAdapter.replaceAll(list)
+        tvEmptyTelecom.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+        rvTelecom.visibility = if (list.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    private fun showPasteTelecomDialog() {
+        val view = LayoutInflater.from(this).inflate(R.layout.dialog_paste_telecom, null)
+        val etNick = view.findViewById<EditText>(R.id.etTelecomNickname)
+        val etCred = view.findViewById<EditText>(R.id.etTelecomCredential)
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.telecom_paste_title)
+            .setView(view)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.save) { _, _ ->
+                val raw = etCred.text.toString()
+                if (!TelecomAccountStore.isValidCredential(raw)) {
+                    Toast.makeText(this, R.string.telecom_credential_empty, Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                val nick = etNick.text.toString().trim()
+                val account = telecomStore.upsertByCredential(raw, nick.ifBlank { null })
+                refreshTelecomList()
+                QingLongPanel.ensureReady(this) {
+                    pushTelecomAccount(account)
+                }
+            }
+            .show()
+    }
+
+    override fun onCopy(account: TelecomAccount) = copy(account.credential, TelecomAccountStore.ENV_NAME)
+
+    override fun onPushQl(account: TelecomAccount) {
+        QingLongPanel.ensureReady(this) { pushTelecomAccount(account) }
+    }
+
+    override fun onRename(account: TelecomAccount) {
+        val input = EditText(this).apply {
+            setText(account.nickname.ifBlank { account.displayName })
+            setSelection(text.length)
+            hint = getString(R.string.telecom_nick_hint)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.rename)
+            .setView(input)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.confirm) { _, _ ->
+                telecomStore.rename(account.id, input.text.toString())
+                refreshTelecomList()
+            }
+            .show()
+    }
+
+    override fun onDelete(account: TelecomAccount) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.confirm_delete_ql_title)
+            .setMessage(getString(R.string.confirm_delete_telecom_ql_msg, account.displayName))
+            .setNeutralButton(R.string.delete_local_only) { _, _ ->
+                telecomStore.delete(account.id)
+                refreshTelecomList()
+            }
+            .setNegativeButton(R.string.delete_and_disable_ql) { _, _ ->
+                deleteTelecomLocalAndQl(account, remove = false)
+            }
+            .setPositiveButton(R.string.delete_and_remove_ql) { _, _ ->
+                deleteTelecomLocalAndQl(account, remove = true)
+            }
+            .show()
+    }
+
+    private fun deleteTelecomLocalAndQl(account: TelecomAccount, remove: Boolean) {
+        telecomStore.delete(account.id)
+        refreshTelecomList()
+        if (!QingLongPanel.isReady(this)) {
+            Toast.makeText(this, R.string.ql_not_configured, Toast.LENGTH_SHORT).show()
+            return
+        }
+        thread {
+            try {
+                val api = QingLongApi(qlConfig.load())
+                val envId = account.qlEnvId.ifBlank {
+                    api.findTelecomEnv(account)?.idString.orEmpty()
+                }
+                if (envId.isBlank()) {
+                    runOnUiThread {
+                        Toast.makeText(this, "本机已删除；青龙上未找到对应变量", Toast.LENGTH_LONG).show()
+                    }
+                    return@thread
+                }
+                val msg = if (remove) api.deleteEnv(envId) else api.disableEnv(envId)
+                runOnUiThread { Toast.makeText(this, msg, Toast.LENGTH_SHORT).show() }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this, "本机已删除；青龙操作失败: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun pushTelecomAccount(account: TelecomAccount) {
+        account.pushStatus = PushStatus.PUSHING
+        telecomStore.update(account)
+        refreshTelecomList()
+        thread {
+            try {
+                val result = QingLongApi(qlConfig.load()).pushOrUpdateTelecom(account)
+                account.qlEnvId = result.envId
+                account.pushStatus = PushStatus.SYNCED
+                account.lastPushedAt = System.currentTimeMillis()
+                account.lastPushMessage = result.message
+                telecomStore.update(account)
+                runOnUiThread {
+                    refreshTelecomList()
+                    Toast.makeText(this, result.message, Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                account.pushStatus = PushStatus.FAILED
+                account.lastPushMessage = e.message ?: "失败"
+                telecomStore.update(account)
+                runOnUiThread {
+                    refreshTelecomList()
+                    Toast.makeText(this, "推送失败: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun pushAllTelecom() {
+        QingLongPanel.ensureReady(this) {
+            val accounts = telecomStore.loadAll()
+            if (accounts.isEmpty()) {
+                Toast.makeText(this, R.string.no_accounts, Toast.LENGTH_SHORT).show()
+                return@ensureReady
+            }
+            thread {
+                var ok = 0
+                var fail = 0
+                val api = QingLongApi(qlConfig.load())
+                accounts.forEachIndexed { index, account ->
+                    runOnUiThread {
+                        Toast.makeText(
+                            this,
+                            getString(R.string.push_all_progress, index + 1, accounts.size),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    try {
+                        account.pushStatus = PushStatus.PUSHING
+                        telecomStore.update(account)
+                        val result = api.pushOrUpdateTelecom(account)
+                        account.qlEnvId = result.envId
+                        account.pushStatus = PushStatus.SYNCED
+                        account.lastPushedAt = System.currentTimeMillis()
+                        account.lastPushMessage = result.message
+                        telecomStore.update(account)
+                        ok++
+                    } catch (e: Exception) {
+                        account.pushStatus = PushStatus.FAILED
+                        account.lastPushMessage = e.message ?: "失败"
+                        telecomStore.update(account)
+                        fail++
+                    }
+                    runOnUiThread { refreshTelecomList() }
+                }
+                runOnUiThread {
+                    refreshTelecomList()
                     Toast.makeText(
                         this,
                         getString(R.string.push_all_done, ok, fail),
