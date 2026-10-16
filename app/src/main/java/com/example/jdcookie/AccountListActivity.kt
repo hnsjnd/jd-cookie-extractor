@@ -85,6 +85,10 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
         ActivityResultContracts.StartActivityForResult()
     ) { refreshElmList() }
 
+    private val quarkLoginLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { refreshQuarkList() }
+
     companion object {
         private const val ZONE_JD = 0
         private const val ZONE_MEITUAN = 1
@@ -234,7 +238,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
             }
             ZONE_MEITUAN -> showAddMeituanChooser()
             ZONE_ELM -> showAddElmChooser()
-            ZONE_QUARK -> showPasteQuarkDialog()
+            ZONE_QUARK -> showAddQuarkChooser()
             ZONE_TELECOM -> showPasteTelecomDialog()
             else -> { /* microsoft: no fab action */ }
         }
@@ -1166,6 +1170,24 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
         quarkAdapter.replaceAll(list)
         tvEmptyQuark.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
         rvQuark.visibility = if (list.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    private fun showAddQuarkChooser() {
+        val labels = arrayOf(
+            getString(R.string.quark_add_webview),
+            getString(R.string.quark_add_paste)
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.add_quark)
+            .setItems(labels) { _, which ->
+                when (which) {
+                    0 -> QingLongPanel.ensureReady(this) {
+                        quarkLoginLauncher.launch(Intent(this, QuarkLoginActivity::class.java))
+                    }
+                    1 -> showPasteQuarkDialog()
+                }
+            }
+            .show()
     }
 
     private fun showPasteQuarkDialog() {

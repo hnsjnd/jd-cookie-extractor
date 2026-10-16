@@ -4,7 +4,7 @@ import android.webkit.CookieManager
 import android.webkit.WebView
 
 /**
- * JD / Meituan / Ele.me login session helpers.
+ * JD / Meituan / Ele.me / Quark login session helpers.
  * CookieManager is process-wide within a process. QingLong panel runs in :qlpanel
  * with its own data directory, so the main process may safely wipe all cookies.
  */
@@ -51,6 +51,20 @@ object WebViewSession {
         "http://www.ele.me"
     )
 
+    private val QUARK_URLS = listOf(
+        "https://pan.quark.cn",
+        "https://quark.cn",
+        "https://www.quark.cn",
+        "https://drive-m.quark.cn",
+        "https://drive.quark.cn",
+        "https://passport.quark.cn",
+        "https://u.quark.cn",
+        "https://su.quark.cn",
+        "https://m.quark.cn",
+        "http://pan.quark.cn",
+        "http://drive-m.quark.cn"
+    )
+
     /** Clear only JD-domain cookies so QingLong panel login stays intact. */
     fun clearJdCookies(webView: WebView?) {
         clearDomainCookies(JD_URLS)
@@ -79,6 +93,15 @@ object WebViewSession {
         }
     }
 
+    fun clearQuarkCookies(webView: WebView?) {
+        clearDomainCookies(QUARK_URLS)
+        webView?.apply {
+            clearCache(true)
+            clearHistory()
+            clearFormData()
+        }
+    }
+
     private fun clearDomainCookies(urls: List<String>) {
         val cm = CookieManager.getInstance()
         for (url in urls) {
@@ -94,7 +117,7 @@ object WebViewSession {
     }
 
     /**
-     * Main process only holds JD/Meituan/Ele.me cookies (QL panel runs in :qlpanel with its own
+     * Main process only holds JD/Meituan/Ele.me/Quark cookies (QL panel runs in :qlpanel with its own
      * data dir), so wiping everything is safe. Calls [onDone] on main thread
      * after removal + flush completed.
      */
@@ -135,6 +158,16 @@ object WebViewSession {
         val cm = CookieManager.getInstance()
         val parts = linkedSetOf<String>()
         for (url in ELM_URLS) {
+            cm.getCookie(url)?.split(";")?.map { it.trim() }?.filter { it.isNotEmpty() }
+                ?.let { parts.addAll(it) }
+        }
+        return parts.joinToString("; ")
+    }
+
+    fun rawQuarkCookies(): String {
+        val cm = CookieManager.getInstance()
+        val parts = linkedSetOf<String>()
+        for (url in QUARK_URLS) {
             cm.getCookie(url)?.split(";")?.map { it.trim() }?.filter { it.isNotEmpty() }
                 ?.let { parts.addAll(it) }
         }
