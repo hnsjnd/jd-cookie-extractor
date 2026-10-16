@@ -202,6 +202,8 @@
     <string name="quark_login_title">夸克登录 · 提取 COOKIE_QUARK</string>
     <string name="quark_step_wait_login">请在下方用手机号验证码登录夸克（H5，非 App 下载页）；登录后将探测 growth 并拦截含 kps/sign/vcode 的请求。若无法提取请返回用「粘贴」。</string>
     <string name="quark_step_probe_growth">已登录，正在探测 growth 接口…</string>
+    <string name="quark_step_need_login">请先完成登录</string>
+    <string name="quark_guest_need_login">未检测到有效登录会话（guest/401）。请先用手机号验证码完成登录后再提取。</string>
     <string name="quark_step_pushing">推送中…正在更新 COOKIE_QUARK</string>
     <string name="quark_paste_title">粘贴夸克 Cookie</string>
     <string name="quark_cookie_hint">COOKIE_QUARK（user=…; url=… 或 user=; kps=; sign=; vcode=）</string>

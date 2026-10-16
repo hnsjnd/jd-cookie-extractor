@@ -49,6 +49,7 @@ class QuarkLoginActivity : AppCompatActivity() {
         override fun run() {
             if (extractStarted || !polling) return
             tryExtractFromCookiesAndPage()
+            checkPageForGuestAuth()
             maybeNavigateGrowth()
             if (!extractStarted) handler.postDelayed(this, 1500L)
         }
@@ -168,6 +169,11 @@ class QuarkLoginActivity : AppCompatActivity() {
             fun onNickname(name: String?) {
                 if (!name.isNullOrBlank()) pendingNickname = name.trim()
             }
+
+            @JavascriptInterface
+            fun onGuestAuthFailure(detail: String?) {
+                handler.post { handleGuestAuthFailure(detail) }
+            }
         }, BRIDGE)
 
         webView.webViewClient = object : WebViewClient() {
@@ -219,6 +225,7 @@ class QuarkLoginActivity : AppCompatActivity() {
                 url?.let { considerCredentialUrl(it) }
                 injectHooks()
                 tryExtractFromCookiesAndPage()
+                checkPageForGuestAuth()
                 maybeNavigateGrowth()
             }
         }
@@ -291,6 +298,12 @@ class QuarkLoginActivity : AppCompatActivity() {
                   var el = document.querySelector('[class*="nick"],[class*="user-name"],[class*="username"]');
                   if (el && el.textContent && B) B.onNickname(el.textContent.trim());
                 } catch(e){}
+                try {
+                  var t = (document.body && (document.body.innerText || document.body.textContent)) || '';
+                  if (/require login|\[guest\]|"code"\s*:\s*31001/i.test(t) && B) {
+                    B.onGuestAuthFailure(t.substring(0, 160));
+                  }
+                } catch(e){}
               } catch(e){}
             })();
         """.trimIndent()
@@ -308,26 +321,96 @@ class QuarkLoginActivity : AppCompatActivity() {
         if (extractStarted) return
         val raw = WebViewSession.rawQuarkCookies()
         val fp = QuarkAccountStore.fingerprintFromRaw(raw)
+        // Only real session cookies (__puus/__pus) — never URL redirect or guest crumbs
         if (fp.isNotBlank() && fp != baselineFingerprint && QuarkAccountStore.looksLoggedIn(raw)) {
             loginLikely = true
+        } else if (!QuarkAccountStore.looksLoggedIn(raw)) {
+            loginLikely = false
         }
         // Rare: kps/sign/vcode appear as cookie fields
         val fromCookie = QuarkAccountStore.parseCredsFromCookieHeader(raw)
         if (fromCookie != null && QuarkAccountStore.isCompleteCreds(fromCookie)) {
             if (baselineFingerprint != null && fp == baselineFingerprint) return
+            // Require real session before accepting cookie-sourced creds
+            if (!QuarkAccountStore.looksLoggedIn(raw)) return
             onCredsFound(fromCookie)
         }
     }
 
     private fun maybeNavigateGrowth() {
         if (extractStarted || triedGrowthNav || !loginLikely) return
+        // Re-check cookies right before probe — guest must not see 「已登录」
+        val raw = WebViewSession.rawQuarkCookies()
+        if (!QuarkAccountStore.looksLoggedIn(raw)) {
+            loginLikely = false
+            return
+        }
         triedGrowthNav = true
         // Soft navigation: may 401 without kps; still useful if page JS attaches params
         handler.postDelayed({
             if (extractStarted || isFinishing) return@postDelayed
+            if (!QuarkAccountStore.looksLoggedIn(WebViewSession.rawQuarkCookies())) {
+                loginLikely = false
+                triedGrowthNav = false
+                return@postDelayed
+            }
             setStep(getString(R.string.quark_step_probe_growth), true)
             webView.loadUrl(GROWTH_INFO_HINT)
         }, 1200L)
+    }
+
+    /** Inspect account/info or growth JSON for guest 401; keep WebView on login. */
+    private fun checkPageForGuestAuth() {
+        if (extractStarted || isFinishing) return
+        val url = webView.url.orEmpty()
+        val interesting = url.contains("account/info", true) ||
+            url.contains("growth", true) ||
+            url.contains("drive-m.quark.cn", true)
+        if (!interesting) return
+        val js = """
+            (function(){
+              try {
+                var t = (document.body && (document.body.innerText || document.body.textContent)) || '';
+                if (!t) t = (document.documentElement && document.documentElement.innerText) || '';
+                return t.substring(0, 2000);
+              } catch(e) { return ''; }
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(js) { raw ->
+            if (extractStarted || isFinishing) return@evaluateJavascript
+            val body = unescapeJsString(raw)
+            if (QuarkAccountStore.isGuestAuthFailure(body)) {
+                handleGuestAuthFailure(body.take(120))
+            }
+        }
+    }
+
+    private fun unescapeJsString(raw: String?): String {
+        if (raw.isNullOrBlank() || raw == "null") return ""
+        var s = raw.trim()
+        if (s.length >= 2 && s.first() == '"' && s.last() == '"') {
+            s = s.substring(1, s.length - 1)
+        }
+        return s.replace("\\n", "\n")
+            .replace("\\r", "\r")
+            .replace("\\t", "\t")
+            .replace("\\\"", "\"")
+            .replace("\\\\", "\\")
+    }
+
+    private fun handleGuestAuthFailure(@Suppress("UNUSED_PARAMETER") detail: String?) {
+        if (extractStarted || isFinishing) return
+        loginLikely = false
+        triedGrowthNav = false
+        setStep(getString(R.string.quark_step_need_login), true)
+        showError(getString(R.string.quark_guest_need_login))
+        val cur = webView.url.orEmpty()
+        // Keep / return to H5 login — do not claim success or leave growth open
+        if (!cur.contains("uop.quark.cn/cas", true) &&
+            !cur.contains("custom/login", true)
+        ) {
+            webView.loadUrl(LOGIN_URL)
+        }
     }
 
     private fun onCredsFound(creds: QuarkAccountStore.QuarkCreds) {

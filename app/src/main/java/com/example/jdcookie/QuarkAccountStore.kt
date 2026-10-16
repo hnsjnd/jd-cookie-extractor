@@ -272,13 +272,28 @@ class QuarkAccountStore(context: Context) {
             return normalizeCookie(body)
         }
 
-        /** Heuristic: pan.quark.cn session cookies after login. */
+        /**
+         * Real pan.quark.cn session only. Guest traffic often has __uid/tfstk/_upc_/x-wpk
+         * and a few anonymous cookies — those must NOT count as logged-in.
+         */
         fun looksLoggedIn(rawCookies: String): Boolean {
             if (rawCookies.isBlank()) return false
-            val lower = rawCookies.lowercase()
-            return listOf("__puus", "__pus", "puus=", "_upc_", "__uid", "x-wpk", "tfstk").any {
-                lower.contains(it.lowercase())
-            } || rawCookies.split(";").map { it.trim() }.count { it.contains("=") } >= 3
+            val map = parseMap(rawCookies)
+            fun has(key: String) = map.entries.any {
+                it.key.equals(key, ignoreCase = true) && it.value.isNotBlank()
+            }
+            // Authenticated session tokens (not guest/anonymous markers)
+            return has("__puus") || has("__pus") || has("puus")
+        }
+
+        /** Body / JSON from account/info or growth when still a guest. */
+        fun isGuestAuthFailure(text: String): Boolean {
+            if (text.isBlank()) return false
+            val t = text.lowercase()
+            return t.contains("require login") ||
+                t.contains("[guest]") ||
+                (t.contains("\"code\"") && t.contains("31001")) ||
+                (t.contains("\"status\"") && t.contains("401") && t.contains("login"))
         }
 
         fun fingerprintFromRaw(raw: String): String {
