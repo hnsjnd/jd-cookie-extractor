@@ -179,8 +179,13 @@
     <string name="meituan_step_pushing">推送中…正在更新 meituanCookie</string>
     <string name="confirm_delete_mt_ql_msg">删除本机「%1$s」？是否同时处理青龙上的 meituanCookie？</string>
     <string name="zone_elm_title">饿了么账号</string>
-    <string name="empty_elm">还没有饿了么账号\n点右下角添加：粘贴 Cookie，保存后推送到青龙 elmck</string>
+    <string name="empty_elm">还没有饿了么账号\n点右下角添加：WebView 登录或粘贴 Cookie，保存后推送到青龙 elmck</string>
     <string name="add_elm">添加饿了么</string>
+    <string name="elm_add_webview">登录获取</string>
+    <string name="elm_add_paste">粘贴</string>
+    <string name="elm_login_title">饿了么登录 · 提取 Cookie</string>
+    <string name="elm_step_wait_login">请在下方登录饿了么；登录后将自动提取 Cookie。若无法登录请返回用「粘贴」。</string>
+    <string name="elm_step_pushing">推送中…正在更新 elmck</string>
     <string name="elm_paste_title">粘贴饿了么 Cookie</string>
     <string name="elm_cookie_hint">完整 Cookie（含 cookie2 / unb / USERID / SID）</string>
     <string name="elm_cookie_tip">推送到青龙环境变量名：elmck；值为完整 Cookie 字符串。粘贴浏览器 Cookie 头会自动保留 cookie2/sgcookie/unb/USERID/SID/token/utdid/deviceId/umt；缺 USERID 时用 unb 补齐。适配 Shuying-exquisite/elm 吃货豆.py。</string>

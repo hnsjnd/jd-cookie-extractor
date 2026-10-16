@@ -4,7 +4,7 @@ import android.webkit.CookieManager
 import android.webkit.WebView
 
 /**
- * JD / Meituan login session helpers.
+ * JD / Meituan / Ele.me login session helpers.
  * CookieManager is process-wide within a process. QingLong panel runs in :qlpanel
  * with its own data directory, so the main process may safely wipe all cookies.
  */
@@ -37,6 +37,20 @@ object WebViewSession {
         "http://meituan.com"
     )
 
+    private val ELM_URLS = listOf(
+        "https://h5.ele.me",
+        "https://www.ele.me",
+        "https://ele.me",
+        "https://tb.ele.me",
+        "https://m.ele.me",
+        "https://passport.ele.me",
+        "https://r.ele.me",
+        "https://restapi.ele.me",
+        "http://h5.ele.me",
+        "http://ele.me",
+        "http://www.ele.me"
+    )
+
     /** Clear only JD-domain cookies so QingLong panel login stays intact. */
     fun clearJdCookies(webView: WebView?) {
         clearDomainCookies(JD_URLS)
@@ -49,6 +63,15 @@ object WebViewSession {
 
     fun clearMeituanCookies(webView: WebView?) {
         clearDomainCookies(MEITUAN_URLS)
+        webView?.apply {
+            clearCache(true)
+            clearHistory()
+            clearFormData()
+        }
+    }
+
+    fun clearElmCookies(webView: WebView?) {
+        clearDomainCookies(ELM_URLS)
         webView?.apply {
             clearCache(true)
             clearHistory()
@@ -71,7 +94,7 @@ object WebViewSession {
     }
 
     /**
-     * Main process only holds JD/Meituan cookies (QL panel runs in :qlpanel with its own
+     * Main process only holds JD/Meituan/Ele.me cookies (QL panel runs in :qlpanel with its own
      * data dir), so wiping everything is safe. Calls [onDone] on main thread
      * after removal + flush completed.
      */
@@ -108,6 +131,16 @@ object WebViewSession {
         return parts.joinToString("; ")
     }
 
+    fun rawElmCookies(): String {
+        val cm = CookieManager.getInstance()
+        val parts = linkedSetOf<String>()
+        for (url in ELM_URLS) {
+            cm.getCookie(url)?.split(";")?.map { it.trim() }?.filter { it.isNotEmpty() }
+                ?.let { parts.addAll(it) }
+        }
+        return parts.joinToString("; ")
+    }
+
     fun parsePt(cookies: String): Pair<String?, String?> {
         val ptKey = Regex("pt_key=([^;]+)").find(cookies)?.groupValues?.get(1)
         val ptPin = Regex("pt_pin=([^;]+)").find(cookies)?.groupValues?.get(1)
@@ -120,5 +153,14 @@ object WebViewSession {
             .find(cookies) ?: return null
         val v = m.groupValues[1].trim()
         return v.ifBlank { null }
+    }
+
+    /**
+     * Build normalized elmck string from raw WebView cookies.
+     * Returns null if cookie2 and SID are both missing.
+     */
+    fun parseElmCookie(cookies: String): String? {
+        if (!ElmAccountStore.isValidCookie(cookies)) return null
+        return ElmAccountStore.normalizeCookie(cookies)
     }
 }

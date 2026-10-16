@@ -71,6 +71,10 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
         ActivityResultContracts.StartActivityForResult()
     ) { refreshMeituanList() }
 
+    private val elmLoginLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { refreshElmList() }
+
     companion object {
         private const val ZONE_JD = 0
         private const val ZONE_MEITUAN = 1
@@ -197,7 +201,7 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
                 loginLauncher.launch(Intent(this, LoginActivity::class.java))
             }
             ZONE_MEITUAN -> showAddMeituanChooser()
-            ZONE_ELM -> showPasteElmDialog()
+            ZONE_ELM -> showAddElmChooser()
             else -> { /* microsoft: no fab action */ }
         }
     }
@@ -914,6 +918,24 @@ class AccountListActivity : AppCompatActivity(), AccountAdapter.Listener, Meitua
         elmAdapter.replaceAll(list)
         tvEmptyElm.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
         rvElm.visibility = if (list.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    private fun showAddElmChooser() {
+        val labels = arrayOf(
+            getString(R.string.elm_add_webview),
+            getString(R.string.elm_add_paste)
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.add_elm)
+            .setItems(labels) { _, which ->
+                when (which) {
+                    0 -> QingLongPanel.ensureReady(this) {
+                        elmLoginLauncher.launch(Intent(this, ElmLoginActivity::class.java))
+                    }
+                    1 -> showPasteElmDialog()
+                }
+            }
+            .show()
     }
 
     private fun showPasteElmDialog() {

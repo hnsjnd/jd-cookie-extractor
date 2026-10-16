@@ -41,6 +41,13 @@
             android:parentActivityName=".AccountListActivity" />
 
         <activity
+            android:name=".ElmLoginActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize"
+            android:parentActivityName=".AccountListActivity" />
+
+        <activity
             android:name=".TaskProgressActivity"
             android:exported="false"
             android:parentActivityName=".AccountListActivity" />
