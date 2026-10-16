@@ -4,7 +4,7 @@
 
 > Cookie / token / 服务密码默认只保存在本机。请勿泄露给他人。
 
-## 功能（v1.10.1）
+## 功能（v1.10.2）
 
 - **分区 UI**：顶部 Tab「京豆 / 美团 / 饿了么 / 夸克 / 电信 / 微软」
   - **京豆**：原有京东多账号、京豆统计、养号模式、失效提醒、推送 `JD_COOKIE`
@@ -37,7 +37,7 @@
 
 ### WebView 登录
 
-默认打开 `https://pan.quark.cn/`；登录后会探测 `drive-m.quark.cn` 的 growth/info，并拦截含 `kps`/`sign`/`vcode` 的请求（含 `act/growth/reward`）。提取成功后自动推送青龙。
+默认打开夸克官方 H5 手机登录（`uop.quark.cn/cas/custom/login`，client_id=503），登录成功后回跳 `pan.quark.cn/account/info` 种会话 Cookie；再探测 `drive-m.quark.cn` 的 growth/info，并拦截含 `kps`/`sign`/`vcode` 的请求（含 `act/growth/reward`）。不再默认打开 `pan.quark.cn/` 首页（移动端会跳转到夸克 App 下载页）。提取成功后自动推送青龙。
 
 **URL 注意（抓包 / 粘贴时）：**
 

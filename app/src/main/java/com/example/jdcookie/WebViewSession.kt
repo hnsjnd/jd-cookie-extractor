@@ -57,12 +57,19 @@ object WebViewSession {
         "https://www.quark.cn",
         "https://drive-m.quark.cn",
         "https://drive.quark.cn",
+        "https://drive-pc.quark.cn",
         "https://passport.quark.cn",
         "https://u.quark.cn",
+        "https://uop.quark.cn",
         "https://su.quark.cn",
         "https://m.quark.cn",
+        "https://b.quark.cn",
+        "https://api.open.uc.cn",
+        "https://login.uc.cn",
+        "https://id.uc.cn",
         "http://pan.quark.cn",
-        "http://drive-m.quark.cn"
+        "http://drive-m.quark.cn",
+        "http://uop.quark.cn"
     )
 
     /** Clear only JD-domain cookies so QingLong panel login stays intact. */

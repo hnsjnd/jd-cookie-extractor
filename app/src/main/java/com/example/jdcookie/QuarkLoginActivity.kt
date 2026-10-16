@@ -55,8 +55,16 @@ class QuarkLoginActivity : AppCompatActivity() {
     }
 
     companion object {
-        /** Passport / netdisk H5 entry. */
-        private const val LOGIN_URL = "https://pan.quark.cn/"
+        /**
+         * Official Quark cloud H5 phone login (from pan.js h5LoginPage).
+         * pan.quark.cn on mobile UA redirects to App download (h5.sm.cn);
+         * this CAS page stays in WebView. redirect_uri seeds pan session via
+         * account/info (JSON, no download landing), then growth probe runs.
+         */
+        private const val LOGIN_URL =
+            "https://uop.quark.cn/cas/custom/login" +
+                "?custom_login_type=mobile&client_id=503&display=mobile" +
+                "&redirect_uri=https%3A%2F%2Fpan.quark.cn%2Faccount%2Finfo"
         /**
          * Soft probe after login. PC WebView usually uses Cookie auth (no kps);
          * mobile growth/reward URLs with kps/sign/vcode are still preferred when intercepted.
